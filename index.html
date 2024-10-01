@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Categorizer</title>
+    <style>
+        /* Basic page styling */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        
+        /* Container styling */
+        .container {
+            background-color: #fff;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 500px;
+            max-width: 90%;
+        }
+
+        h1 {
+            color: #0073e6;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            resize: none;
+            font-size: 16px;
+        }
+
+        .label-definition {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .label-definition input {
+            flex: 1;
+            padding: 5px;
+            margin-right: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .label-definition input:last-child {
+            margin-right: 0;
+        }
+
+        button {
+            background-color: #0073e6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px 0;
+            display: block;
+            width: 100%;
+            text-align: center;
+        }
+
+        button:hover {
+            background-color: #005bb5;
+        }
+
+        #category-result {
+            color: #333;
+            font-weight: bold;
+            text-align: center;
+            display: block;
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        .labels-container {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        /* Scrollbar styling */
+        .labels-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .labels-container::-webkit-scrollbar-thumb {
+            background-color: #0073e6;
+            border-radius: 5px;
+        }
+
+        /* Responsiveness */
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+
+            textarea {
+                height: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Text Categorizer</h1>
+        
+        <textarea id="text-input" rows="5" placeholder="Enter text to categorize"></textarea><br><br>
+        
+        <h3>Enter Labels and Definitions:</h3>
+        <div id="labels-container" class="labels-container">
+            <div class="label-definition">
+                <input type="text" placeholder="Label Name" class="label-name">
+                <input type="text" placeholder="Label Definition" class="label-definition">
+            </div>
+        </div>
+        <button onclick="addLabel()">Add another label</button><br>
+        
+        <button onclick="categorizeText()">Categorize</button>
+        
+        <h2>Chosen Label: <span id="category-result">N/A</span></h2>
+    </div>
+
+    <script>
+        function addLabel() {
+            const container = document.getElementById('labels-container');
+            const newLabel = document.createElement('div');
+            newLabel.classList.add('label-definition');
+            newLabel.innerHTML = `
+                <input type="text" placeholder="Label Name" class="label-name">
+                <input type="text" placeholder="Label Definition" class="label-definition">
+            `;
+            container.appendChild(newLabel);
+        }
+
+        async function categorizeText() {
+            const text = document.getElementById('text-input').value;
+            const labelElements = document.querySelectorAll('.label-definition');
+            
+            const labels = Array.from(labelElements).map(labelElement => {
+                return {
+                    name: labelElement.querySelector('.label-name').value,
+                    definition: labelElement.querySelector('.label-definition').value
+                };
+            });
+
+            try {
+                const response = await fetch('http://localhost:5000/categorize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, labels })
+                });
+
+                const result = await response.json();
+                document.getElementById('category-result').innerText = result.label;
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while categorizing the text.');
+            }
+        }
+    </script>
+</body>
+</html>
