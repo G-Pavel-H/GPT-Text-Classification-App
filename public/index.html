@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Text Categorization Tool</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+            <div class="left-section">
+                <div class="info-box">
+                    <h1>Advanced Text Categorization Tool</h1>
+                    <p>
+                        This advanced text categorization tool utilizes cutting-edge AI technology to automatically classify text data based on your custom-defined categories. Upload a CSV file containing your text inputs, define your categories and their specific definitions, and let the AI handle the rest.
+                    </p>
+                    <p>
+                        Whether you're a data analyst, researcher, or business professional, this tool simplifies the process of organizing large datasets, enhancing efficiency and productivity.
+                    </p>
+                    <h3>Key Features:</h3>
+                    <ul>
+                        <li>Automated text classification powered by AI</li>
+                        <li>Customizable categories tailored to your needs</li>
+                        <li>Efficient processing of extensive datasets</li>
+                        <li>User-friendly interface</li>
+                    </ul>
+                    <h3>How It Works:</h3>
+                    <ol>
+                        <li>Prepare your CSV file with a column named "Input" containing the text to be categorized.</li>
+                        <li>Define your categories and provide clear definitions.</li>
+                        <li>Upload your file and click "Process File".</li>
+                        <li>Download the categorized output and streamline your data analysis.</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="right-section">
+                <h3>Upload Your CSV File:</h3>
+                <label for="csvFileInput" class="custom-file-upload" id="custom-file-upload">
+                    Choose File
+                </label>
+                <input type="file" id="csvFileInput" accept=".csv">
+
+                <h3>Define Your Categories:</h3>
+                <div id="labels-container" class="labels-container">
+                    <div class="label">
+                        <input type="text" placeholder="Category Name" class="label-name">
+                        <input type="text" placeholder="Category Definition" class="label-definition">
+                    </div>
+                </div>
+                <button class="fancy-button" onclick="addLabel()">Add Category</button>
+
+                <button class="fancy-button" onclick="uploadFile()">Process File</button>
+
+                <div id="progress-message"></div>
+                
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

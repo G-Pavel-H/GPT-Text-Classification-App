@@ -1,53 +1,161 @@
-// Import required libraries
+require('dotenv').config();
+
+// Add this import at the top
+const { encode } = require('gpt-3-encoder'); // Install via: npm install gpt-3-encoder
+
+const multer = require('multer');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require('openai');
+const fs = require('fs');
+const csv = require('fast-csv');
+const helmet = require('helmet');
+const fsExtra = require('fs-extra');
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 // Initialize Express app
 const app = express();
+const path = require('path');
+
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
 app.use(cors());
+app.use(helmet());
 
-// Set up OpenAI configuration
-const configuration = new Configuration({
-    apiKey: 'your-openai-api-key-here' // Replace this with your actual API key
-});
-const openai = new OpenAIApi(configuration);
+// Setup file upload
+const upload = multer({ dest: 'uploads/' });
 
-// Endpoint to handle categorization requests
-app.post('/categorize', async (req, res) => {
-    const { text, labels } = req.body;
+// Helper function to call ChatGPT API
+async function getLabel(text, labels) {
+  const messages = [
+    {
+      role: 'system',
+      content:
+        'You are an assistant that categorizes text based on provided labels and definitions.',
+    },
+    {
+      role: 'user',
+      content: `Categorize the following text into one of the provided labels based on their definitions:\n\nText: "${text}"\n\nLabels and Definitions:\n${labels
+        .map(
+          (label, index) =>
+            `${index + 1}. ${label.name}: ${label.definition}`
+        )
+        .join('\n')}\n\nPlease respond with the most appropriate label only.`,
+    },
+  ];
 
-    // Create a prompt for ChatGPT
-    const prompt = `Categorize the following text into one of the provided labels based on their definitions:\n\nText: "${text}"\n\nLabels and Definitions:\n`;
-
-    labels.forEach((label, index) => {
-        prompt += `${index + 1}. ${label.name}: ${label.definition}\n`;
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: messages,
+      temperature: 0.2,
     });
 
-    prompt += `\nPlease respond with the most appropriate label only.`;
+    return response.choices[0].message.content.trim();
+  } catch (error) {
+    console.error(
+      'Error with OpenAI API:',
+      error.response ? error.response.data : error.message
+    );
+    return 'Error';
+  }
+}
 
-    try {
-        // Make the API request to OpenAI
-        const response = await openai.createCompletion({
-            model: 'text-davinci-003', // You can choose other models if needed
-            prompt: prompt,
-            max_tokens: 50,
-            temperature: 0.2
+// Endpoint to handle CSV file upload
+app.post('/upload-csv', upload.single('file'), async (req, res) => {
+  const file = req.file;
+  const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
+
+  const writeStream = fs.createWriteStream(`output-${file.filename}.csv`);
+  const csvStream = csv.format({ headers: ['Input', 'Output'] });
+  csvStream.pipe(writeStream);
+
+  const promises = [];
+
+  fs.createReadStream(file.path)
+    .pipe(csv.parse({ headers: true }))
+    .on('error', (error) => {
+      console.error('Error reading CSV file:', error);
+      res.status(500).send('Error reading the file');
+    })
+    .on('data', (row) => {
+      if (row.Input) {
+        const promise = getLabel(row.Input, labels).then((label) => {
+          csvStream.write({ Input: row.Input, Output: label });
         });
+        promises.push(promise);
+      }
+    })
+    .on('end', () => {
+      Promise.all(promises)
+        .then(() => {
+          csvStream.end();
+          res.download(
+            `output-${file.filename}.csv`,
+            `output-${file.filename}.csv`,
+            (err) => {
+              if (err) {
+                console.error('Error during download:', err);
+                res.status(500).send('Error generating the file');
+              } else {
+                // Delete the uploaded file and the output file
+                fsExtra.remove(file.path);
+                fsExtra.remove(`output-${file.filename}.csv`);
+              }
+            }
+          );
+        })
+        .catch((error) => {
+          console.error('Error processing CSV:', error);
+          res.status(500).send('Error processing the file');
+        });
+    });
+});
 
-        // Extract and send back the label
-        const chosenLabel = response.data.choices[0].text.trim();
-        res.json({ label: chosenLabel });
-    } catch (error) {
-        console.error('Error calling OpenAI API:', error);
-        res.status(500).json({ error: 'Something went wrong with the categorization request' });
-    }
+
+// Add the new endpoint for cost calculation
+app.post('/calculate-cost', upload.single('file'), async (req, res) => {
+  const file = req.file;
+  const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
+
+  let totalTokens = 0;
+
+  fs.createReadStream(file.path)
+    .pipe(csv.parse({ headers: true }))
+    .on('data', (row) => {
+      if (row.Input) {
+        const prompt = `Categorize the following text into one of the provided labels based on their definitions:\n\nText: "${row.Input}"\n\nLabels and Definitions:\n${labels
+          .map((label, index) => `${index + 1}. ${label.name}: ${label.definition}`)
+          .join('\n')}\n\nPlease respond with the most appropriate label only.`;
+
+        const tokens = encode(prompt).length;
+        totalTokens += tokens;
+      }
+    })
+    .on('end', () => {
+      // Estimate the cost
+      const costPer1000Tokens = 0.002; // For gpt-3.5-turbo as of October 2023
+      const totalCost = (totalTokens / 1000) * costPer1000Tokens;
+
+      // Delete the uploaded file
+      fsExtra.remove(file.path);
+
+      res.json({ totalTokens, totalCost });
+    })
+    .on('error', (error) => {
+      console.error('Error reading CSV file:', error);
+      fsExtra.remove(file.path);
+      res.status(500).send('Error reading the file');
+    });
 });
 
 // Start the server
-const PORT = 5000;
+const PORT = 5555;
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });

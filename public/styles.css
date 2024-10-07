@@ -1,0 +1,218 @@
+/* General Styles */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+    background-color: #1a1a1a;
+    color: #fff;
+    overflow-x: hidden;
+    position: relative;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 50px auto;
+    position: relative;
+    z-index: 2;
+    padding-bottom: 50px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.content {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.left-section, .right-section {
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.left-section {
+    flex: 1;
+    background-color: #141414;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    margin-right: 10px;
+    margin-bottom: 20px;
+}
+
+.right-section {
+    flex: 1;
+    background-color: #1e1e1e;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    margin-left: 10px;
+    margin-bottom: 20px;
+}
+
+.info-box {
+    max-width: 100%;
+}
+
+h1 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    animation: fadeIn 1s ease-in-out;
+    color: #007aff;
+}
+
+h3 {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+    animation: slideIn 1s ease-in-out;
+    color: #007aff;
+}
+
+p, ul, ol {
+    font-size: 1em;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+ul, ol {
+    padding-left: 20px;
+}
+
+input[type="file"] {
+    display: none;
+}
+
+.custom-file-upload {
+    display: inline-block;
+    padding: 10px 20px;
+    cursor: pointer;
+    background-color: #333;
+    border-radius: 4px;
+    color: #fff;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin-bottom: 20px;
+}
+
+.custom-file-upload:hover {
+    background-color: #444;
+    transform: translateY(-2px);
+}
+
+.labels-container {
+    margin-bottom: 30px;
+}
+
+.label {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.label input {
+    margin: 0 10px;
+    padding: 10px;
+    width: calc(50% - 40px);
+    border: none;
+    border-radius: 4px;
+    outline: none;
+    background-color: #2a2a2a;
+    color: #fff;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.label input:hover {
+    background-color: #333;
+    transform: translateY(-2px);
+}
+
+.label .remove-label {
+    background: none;
+    border: none;
+    color: #ff5252;
+    font-size: 1.5em;
+    cursor: pointer;
+}
+
+.fancy-button {
+    background-color: #005ac1;
+    color: #fff;
+    padding: 15px 30px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 4px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    display: block;
+}
+
+.fancy-button:hover {
+    background-color: #007aff;
+    transform: translateY(-2px);
+}
+
+.fancy-button:active {
+    transform: translateY(0);
+}
+
+#progress-message {
+    margin-top: 20px;
+    font-size: 1.2em;
+    display: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Interactive Background */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0, 122, 255, 0.2), transparent 50%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Adjust margins and paddings to prevent text from touching borders */
+.left-section .info-box, .right-section {
+    padding-bottom: 20px;
+}
+
+p:last-child, ul:last-child, ol:last-child {
+    margin-bottom: 0;
+}
+
+/* Responsive Styles */
+@media screen and (max-width: 768px) {
+    .content {
+        flex-direction: column;
+    }
+
+    .left-section, .right-section {
+        margin: 0;
+        margin-bottom: 20px;
+    }
+
+    .label {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .label input {
+        width: calc(100% - 20px);
+        margin: 5px 0;
+    }
+
+    .label .remove-label {
+        align-self: flex-end;
+        margin-top: -40px;
+    }
+}
