@@ -6,8 +6,59 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.style.setProperty('--mouse-x', x + '%');
         document.body.style.setProperty('--mouse-y', y + '%');
     });
+});
 
-// script.js
+let isFileValid = false;
+
+function calculatePrice(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        // Parse CSV
+        const rows = text.split('\n').filter(row => row.trim() !== '');
+        // Assuming the first row is the header
+        let inputColumnIndex = -1;
+        const header = rows[0].split(',');
+        // Find the index of the "Input" column
+        for (let i = 0; i < header.length; i++) {
+            if (header[i].trim().toLowerCase() === 'input') {
+                inputColumnIndex = i;
+                break;
+            }
+        }
+        if (inputColumnIndex === -1) {
+            showCustomAlert('CSV file must contain a column named "Input".');
+            isFileValid = false; // Set the flag to false
+            // Reset price estimate
+            const priceEstimateElement = document.getElementById('price-estimate');
+            priceEstimateElement.textContent = '$0.00';
+            return;
+        }
+        // Count the number of inputs
+        const numInputs = rows.length - 1; // Subtract 1 for header
+        if (numInputs <= 0) {
+            showCustomAlert('No data found in the "Input" column.');
+            isFileValid = false; // Set the flag to false
+            // Reset price estimate
+            const priceEstimateElement = document.getElementById('price-estimate');
+            priceEstimateElement.textContent = '$0.00';
+            return;
+        }
+        // Estimate tokens per input (adjust based on your data)
+        const tokensPerInput = 50; // Average tokens per input text
+        const totalTokens = numInputs * tokensPerInput;
+        // OpenAI pricing for gpt-3.5-turbo
+        const pricePerThousandTokens = 0.0015; // $0.0015 per 1K tokens
+        const estimatedCost = (totalTokens / 1000) * pricePerThousandTokens;
+        // Update the price display with animation
+        const priceEstimateElement = document.getElementById('price-estimate');
+        animateValue(priceEstimateElement, 0, estimatedCost, 1000); // Animate over 1 second
+
+        // Set the flag to true since the file is valid
+        isFileValid = true;
+    };
+    reader.readAsText(file);
+}
 
 // Updated addLabel function
 function addLabel() {
@@ -31,8 +82,8 @@ function addLabel() {
     newLabel.classList.add('label');
 
     newLabel.innerHTML = `
-        <input type="text" placeholder="Category Name" class="label-name">
-        <input type="text" placeholder="Category Definition" class="label-definition">
+        <input type="text" placeholder="Label Name" class="label-name">
+        <input type="text" placeholder="Label Definition" class="label-definition">
     `;
 
     // Append delete button to new label
@@ -43,6 +94,42 @@ function addLabel() {
     newLabel.appendChild(deleteButton);
 
     container.appendChild(newLabel);
+}
+
+// Function to animate the price value
+function animateValue(element, start, end, duration) {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = timestamp - startTimestamp;
+        const current = Math.min(start + (end - start) * (progress / duration), end);
+        element.textContent = '$' + current.toFixed(4);
+        if (progress < duration) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+// Function to display custom alert
+function showCustomAlert(message) {
+    const modal = document.getElementById('custom-alert');
+    const messageElement = document.getElementById('custom-alert-message');
+    const closeBtn = document.querySelector('.custom-alert-close');
+
+    messageElement.textContent = message;
+    modal.style.display = 'block';
+
+    closeBtn.onclick = function() {
+        modal.style.display = 'none';
+    };
+
+    // Close modal when clicking outside of the content
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    };
 }
 
 // Updated removeLabel function
@@ -61,86 +148,91 @@ function removeLabel(button) {
         }
     }
 }
-    // Function to upload the CSV file and send label definitions
-    async function uploadFile() {
-        const fileInput = document.getElementById('csvFileInput');
-        const file = fileInput.files[0];
+// Function to upload the CSV file and send label definitions
+async function uploadFile() {
+    const fileInput = document.getElementById('csvFileInput');
+    const file = fileInput.files[0];
 
-        if (!file) {
-            alert('Please upload a CSV file.');
-            return;
-        }
-
-        const labelElements = document.querySelectorAll('.label');
-        if (labelElements.length === 0) {
-            alert('Please add at least one category.');
-            return;
-        }
-
-        const labels = Array.from(labelElements).map(labelElement => {
-            const nameInput = labelElement.querySelector('.label-name');
-            const definitionInput = labelElement.querySelector('.label-definition');
-
-            if (!nameInput || !definitionInput) {
-                console.error('Missing input elements in label:', labelElement);
-                return null;
-            }
-
-            return {
-                name: nameInput.value.trim(),
-                definition: definitionInput.value.trim()
-            };
-        }).filter(label => label !== null);
-
-        if (labels.some(label => label.name === '' || label.definition === '')) {
-            alert('Please fill in all category names and definitions.');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('labels', JSON.stringify(labels));
-
-        // Show progress message
-        const progressMessage = document.getElementById('progress-message');
-        progressMessage.style.display = 'block';
-        progressMessage.textContent = 'Processing your file, please wait...';
-
-        try {
-            const response = await fetch('/upload-csv', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                // Update progress message
-                progressMessage.textContent = 'Download will start shortly...';
-
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'categorized-output.csv';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-
-                // Hide progress message
-                progressMessage.style.display = 'none';
-            } else {
-                alert('Error generating output file.');
-                progressMessage.style.display = 'none';
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            alert('An error occurred while processing the file.');
-            progressMessage.style.display = 'none';
-        }
+    if (!file) {
+        showCustomAlert('Please upload a CSV file.');
+        return;
     }
 
+    if (!isFileValid) {
+        showCustomAlert('The CSV file is invalid. Please upload a valid CSV file.');
+        return;
+    }
+
+    const labelElements = document.querySelectorAll('.label');
+    if (labelElements.length === 0) {
+        showCustomAlert('Please add at least one Label.');
+        return;
+    }
+
+    const labels = Array.from(labelElements).map(labelElement => {
+        const nameInput = labelElement.querySelector('.label-name');
+        const definitionInput = labelElement.querySelector('.label-definition');
+
+        if (!nameInput || !definitionInput) {
+            console.error('Missing input elements in label:', labelElement);
+            return null;
+        }
+
+        return {
+            name: nameInput.value.trim(),
+            definition: definitionInput.value.trim()
+        };
+    }).filter(label => label !== null);
+
+    if (labels.some(label => label.name === '' || label.definition === '')) {
+        showCustomAlert('Please fill in all Label names and definitions.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('labels', JSON.stringify(labels));
+
+    // Show progress message
+    const progressMessage = document.getElementById('progress-message');
+    progressMessage.style.display = 'block';
+    progressMessage.textContent = 'Processing your file, please wait...';
+
+    try {
+        const response = await fetch('/upload-csv', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            // Update progress message
+            progressMessage.textContent = 'Download will start shortly...';
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'categorized-output.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            // Hide progress message
+            progressMessage.style.display = 'none';
+        } else {
+            showCustomAlert('Error generating output file.');
+            progressMessage.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showCustomAlert('An error occurred while processing the file.');
+        progressMessage.style.display = 'none';
+    }
+}
+
     // Custom file input label
-    const realFileBtn = document.getElementById('csvFileInput');
-    const customBtn = document.getElementById('custom-file-upload');
+const realFileBtn = document.getElementById('csvFileInput');
+const customBtn = document.getElementById('custom-file-upload');
 
     // Remove the click event listener
     // customBtn.addEventListener('click', function() {
@@ -149,9 +241,15 @@ function removeLabel(button) {
 
     realFileBtn.addEventListener('change', function() {
         if (realFileBtn.files && realFileBtn.files[0]) {
-            customBtn.textContent = realFileBtn.files[0].name;
+            const file = realFileBtn.files[0];
+            customBtn.textContent = file.name;
+            // Call calculatePrice function
+            calculatePrice(file);
         } else {
             customBtn.textContent = 'Choose File';
+            // Reset price estimate
+            const priceEstimateElement = document.getElementById('price-estimate');
+            priceEstimateElement.textContent = '$0.00';
         }
     });
 
@@ -161,4 +259,18 @@ function removeLabel(button) {
     window.removeLabel = removeLabel;
 
     
+
+
+// Hide preloader after a fixed time or when page is fully loaded
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        const preloader = document.getElementById('preloader');
+        preloader.style.opacity = '0';
+        preloader.style.transition = 'opacity 1s ease';
+
+        // Remove preloader from DOM after transition
+        setTimeout(function() {
+            preloader.style.display = 'none';
+        }, 1000);
+    }, 1000); // Adjust the delay as needed
 });
