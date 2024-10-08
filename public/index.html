@@ -6,6 +6,10 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Preloader -->
+<div id="preloader">
+    <div class="loader"></div>
+</div>
     <div class="container">
         <div class="content">
             <div class="left-section">
@@ -39,15 +43,18 @@
                     Choose File
                 </label>
                 <input type="file" id="csvFileInput" accept=".csv">
+                    <!-- New Section for Price Estimate -->
+                <h3>Estimated API Request Cost:</h3>
+                <div id="price-estimate">$0.00</div>
 
                 <h3>Define Your Categories:</h3>
                 <div id="labels-container" class="labels-container">
                     <div class="label">
-                        <input type="text" placeholder="Category Name" class="label-name">
-                        <input type="text" placeholder="Category Definition" class="label-definition">
+                        <input type="text" placeholder="Label Name" class="label-name">
+                        <input type="text" placeholder="Label Definition" class="label-definition">
                     </div>
                 </div>
-                <button class="fancy-button" onclick="addLabel()">Add Category</button>
+                <button class="fancy-button" onclick="addLabel()">Add Label</button>
 
                 <button class="fancy-button" onclick="uploadFile()">Process File</button>
 
@@ -58,5 +65,13 @@
     </div>
 
     <script src="script.js"></script>
+
+    <!-- Custom Alert Modal -->
+<div id="custom-alert" class="custom-alert">
+    <div class="custom-alert-content">
+        <span class="custom-alert-close">&times;</span>
+        <p id="custom-alert-message"></p>
+    </div>
+</div>
 </body>
 </html>

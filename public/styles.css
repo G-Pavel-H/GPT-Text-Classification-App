@@ -8,6 +8,34 @@ body {
     overflow-x: hidden;
     position: relative;
 }
+/* Preloader Styles */
+#preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #1a1a1a;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.loader {
+    width: 100px;
+    height: 100px;
+    border: 15px solid #333;
+    border-top: 15px solid #ff00ff; /* Bright magenta */
+    border-radius: 50%;
+    animation: spin 2s linear infinite;
+}
+
+/* Loader Animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 
 .container {
     max-width: 1200px;
@@ -52,14 +80,14 @@ body {
 h1 {
     font-size: 2.5em;
     margin-bottom: 20px;
-    animation: fadeIn 1s ease-in-out;
+    animation: fadeIn 3s ease-in-out;
     color: #007aff;
 }
 
 h3 {
     font-size: 1.5em;
     margin-bottom: 10px;
-    animation: slideIn 1s ease-in-out;
+    animation: slideIn 3s ease-in-out;
     color: #007aff;
 }
 
@@ -101,7 +129,7 @@ input[type="file"] {
     display: flex;
     align-items: center;
     margin-bottom: 15px;
-    animation: fadeIn 0.5s ease-in-out;
+    animation: fadeIn 2.5s ease-in-out;
 }
 
 .label input {
@@ -138,6 +166,7 @@ input[type="file"] {
     border-radius: 4px;
     font-size: 1em;
     cursor: pointer;
+    flex: 1; /* Allows buttons to have equal widths */
     transition: background-color 0.3s ease, transform 0.2s ease;
     display: block;
 }
@@ -181,6 +210,15 @@ body::before {
     z-index: 1;
 }
 
+/* styles.css */
+
+#price-estimate {
+    font-size: 1.5em;
+    margin-bottom: 20px;
+    color: #00ff00; /* You can choose any color */
+    animation: slideIn 3s ease-in-out;
+}
+
 /* Adjust margins and paddings to prevent text from touching borders */
 .left-section .info-box, .right-section {
     padding-bottom: 20px;
@@ -215,4 +253,75 @@ p:last-child, ul:last-child, ol:last-child {
         align-self: flex-end;
         margin-top: -40px;
     }
+}
+
+/* Update Heading Colors */
+h1 {
+    color: #ff00ff; /* Bright magenta */
+}
+
+h3 {
+    color: #ff00ff; /* Bright magenta */
+}
+
+/* Bullet Point Animation */
+.info-box ul li:hover, .info-box ol li:hover {
+    position: relative;
+    animation: pulse 1s infinite;
+    cursor:default;
+}
+
+@keyframes pulse {
+    0% {
+        color: #fff;
+    }
+    50% {
+        color: #ff00ff;
+    }
+    100% {
+        color: #fff;
+    }
+}
+
+/* Custom Alert Modal Styles */
+.custom-alert {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+}
+
+.custom-alert-content {
+    background-color: #1e1e1e;
+    margin: 15% auto;
+    padding: 20px;
+    padding-top: 10px;
+    border: 1px solid #444;
+    width: 80%;
+    max-width: 400px;
+    color: #fff;
+    border-radius: 8px;
+    position: relative;
+    text-align: center;
+}
+
+.custom-alert-close {
+    color: #ff00ff;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.custom-alert-close:hover,
+.custom-alert-close:focus {
+    color: #fff;
+    text-decoration: none;
+    cursor: pointer;
 }
