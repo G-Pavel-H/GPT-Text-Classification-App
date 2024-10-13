@@ -31,7 +31,7 @@ app.use(helmet());
 const upload = multer({ dest: 'uploads/' });
 
 // Helper function to call ChatGPT API
-async function getLabel(text, labels) {
+async function getLabel(text, labels, model) {
   const messages = [
     {
       role: 'system',
@@ -51,7 +51,7 @@ async function getLabel(text, labels) {
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: model, // Use the selected model
       messages: messages,
       temperature: 0.2,
     });
@@ -65,11 +65,11 @@ async function getLabel(text, labels) {
     return 'Error';
   }
 }
-
 // Endpoint to handle CSV file upload
 app.post('/upload-csv', upload.single('file'), async (req, res) => {
   const file = req.file;
   const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
+  const model = req.body.model || 'gpt-3.5-turbo'; // Default to GPT-3.5 Turbo if not specified
 
   const writeStream = fs.createWriteStream(`output-${file.filename}.csv`);
   const csvStream = csv.format({ headers: ['Input', 'Output'] });
@@ -85,7 +85,7 @@ app.post('/upload-csv', upload.single('file'), async (req, res) => {
     })
     .on('data', (row) => {
       if (row.Input) {
-        const promise = getLabel(row.Input, labels).then((label) => {
+        const promise = getLabel(row.Input, labels, model).then((label) => {
           csvStream.write({ Input: row.Input, Output: label });
         });
         promises.push(promise);
@@ -122,6 +122,7 @@ app.post('/upload-csv', upload.single('file'), async (req, res) => {
 app.post('/calculate-cost', upload.single('file'), async (req, res) => {
   const file = req.file;
   const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
+  const model = req.body.model || 'gpt-3.5-turbo'; // Default to GPT-3.5 Turbo if not specified
 
   let totalTokens = 0;
 
@@ -138,8 +139,17 @@ app.post('/calculate-cost', upload.single('file'), async (req, res) => {
       }
     })
     .on('end', () => {
+      // Set cost per 1000 tokens based on the model
+      let costPer1000Tokens;
+      if (model === 'gpt-3.5-turbo') {
+        costPer1000Tokens = 0.0015; // Example price
+      } else if (model === 'gpt-4') {
+        costPer1000Tokens = 0.03; // Example price
+      } else {
+        costPer1000Tokens = 0.0015; // Default price
+      }
+
       // Estimate the cost
-      const costPer1000Tokens = 0.002; // For gpt-3.5-turbo as of October 2023
       const totalCost = (totalTokens / 1000) * costPer1000Tokens;
 
       // Delete the uploaded file

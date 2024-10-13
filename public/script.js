@@ -6,9 +6,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.style.setProperty('--mouse-x', x + '%');
         document.body.style.setProperty('--mouse-y', y + '%');
     });
+    addModelChangeListeners(); 
 });
 
 let isFileValid = false;
+let selectedFile = null;
 
 function calculatePrice(file) {
     const reader = new FileReader();
@@ -44,11 +46,21 @@ function calculatePrice(file) {
             priceEstimateElement.textContent = '$0.00';
             return;
         }
+        const model = document.querySelector('input[name="model"]:checked').value;
+
+        // Set price per thousand tokens based on the model
+        let pricePerThousandTokens;
+        if (model === 'gpt-3.5-turbo') {
+            pricePerThousandTokens = 0.0015; // Example price for GPT-3.5 Turbo
+        } else if (model === 'gpt-4') {
+            pricePerThousandTokens = 0.03; // Example price for GPT-4
+        } else {
+            pricePerThousandTokens = 0.0015; // Default price
+        }
         // Estimate tokens per input (adjust based on your data)
         const tokensPerInput = 50; // Average tokens per input text
         const totalTokens = numInputs * tokensPerInput;
         // OpenAI pricing for gpt-3.5-turbo
-        const pricePerThousandTokens = 0.0015; // $0.0015 per 1K tokens
         const estimatedCost = (totalTokens / 1000) * pricePerThousandTokens;
         // Update the price display with animation
         const priceEstimateElement = document.getElementById('price-estimate');
@@ -66,8 +78,9 @@ function addLabel() {
     const labels = container.querySelectorAll('.label');
 
     // If there is only one label and it doesn't have a delete button, add it
-    if (labels.length === 1) {
-        const firstLabel = labels[0];
+    if (labels.length === 2) {
+      for (let i = 0; i < labels.length; i++) {
+        const firstLabel = labels[i];
         if (!firstLabel.querySelector('.remove-label')) {
             const deleteButton = document.createElement('button');
             deleteButton.className = 'remove-label';
@@ -75,6 +88,7 @@ function addLabel() {
             deleteButton.onclick = function() { removeLabel(this); };
             firstLabel.appendChild(deleteButton);
         }
+      }
     }
 
     // Create new label
@@ -139,12 +153,14 @@ function removeLabel(button) {
     container.removeChild(label);
 
     const labels = container.querySelectorAll('.label');
-    if (labels.length === 1) {
+    if (labels.length === 2) {
         // Remove delete button from the remaining label
-        const remainingLabel = labels[0];
-        const deleteButton = remainingLabel.querySelector('.remove-label');
-        if (deleteButton) {
-            remainingLabel.removeChild(deleteButton);
+        for (let i = 0; i < labels.length; i++) {
+          const remainingLabel = labels[i];
+          const deleteButton = remainingLabel.querySelector('.remove-label');
+          if (deleteButton) {
+              remainingLabel.removeChild(deleteButton);
+          }
         }
     }
 }
@@ -188,10 +204,11 @@ async function uploadFile() {
         showCustomAlert('Please fill in all Label names and definitions.');
         return;
     }
-
+    const model = document.querySelector('input[name="model"]:checked').value;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('labels', JSON.stringify(labels));
+    formData.append('model', model);
 
     // Show progress message
     const progressMessage = document.getElementById('progress-message');
@@ -240,18 +257,21 @@ const customBtn = document.getElementById('custom-file-upload');
     // });
 
     realFileBtn.addEventListener('change', function() {
-        if (realFileBtn.files && realFileBtn.files[0]) {
-            const file = realFileBtn.files[0];
-            customBtn.textContent = file.name;
-            // Call calculatePrice function
-            calculatePrice(file);
-        } else {
-            customBtn.textContent = 'Choose File';
-            // Reset price estimate
-            const priceEstimateElement = document.getElementById('price-estimate');
-            priceEstimateElement.textContent = '$0.00';
-        }
-    });
+      if (realFileBtn.files && realFileBtn.files[0]) {
+          selectedFile = realFileBtn.files[0]; // Store the selected file
+          const file = selectedFile;
+          customBtn.textContent = file.name;
+          // Call calculatePrice function
+          calculatePrice(file);
+      } else {
+          customBtn.textContent = 'Choose File';
+          // Reset price estimate
+          const priceEstimateElement = document.getElementById('price-estimate');
+          priceEstimateElement.textContent = '$0.00';
+          isFileValid = false;
+          selectedFile = null; // Reset the selected file
+      }
+  });
 
     // Expose functions to global scope
     window.addLabel = addLabel;
@@ -261,6 +281,17 @@ const customBtn = document.getElementById('custom-file-upload');
     
 
 
+// Add this function to add event listeners to the model radio buttons
+function addModelChangeListeners() {
+  const modelRadioButtons = document.querySelectorAll('input[name="model"]');
+  modelRadioButtons.forEach(radio => {
+      radio.addEventListener('change', function() {
+          if (selectedFile) {
+              calculatePrice(selectedFile);
+          }
+      });
+  });
+}
 // Hide preloader after a fixed time or when page is fully loaded
 window.addEventListener('load', function() {
     setTimeout(function() {

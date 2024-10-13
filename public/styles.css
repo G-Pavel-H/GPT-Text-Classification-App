@@ -109,15 +109,15 @@ input[type="file"] {
     display: inline-block;
     padding: 10px 20px;
     cursor: pointer;
-    background-color: #333;
+    background-color: #005ac1;
     border-radius: 4px;
     color: #fff;
     transition: background-color 0.3s ease, transform 0.2s ease;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .custom-file-upload:hover {
-    background-color: #444;
+    background-color: #007aff;
     transform: translateY(-2px);
 }
 
@@ -129,7 +129,7 @@ input[type="file"] {
     display: flex;
     align-items: center;
     margin-bottom: 15px;
-    animation: fadeIn 2.5s ease-in-out;
+    animation: fadeIn .5s ease-in-out;
 }
 
 .label input {
@@ -157,28 +157,6 @@ input[type="file"] {
     cursor: pointer;
 }
 
-.fancy-button {
-    background-color: #005ac1;
-    color: #fff;
-    padding: 15px 30px;
-    margin: 10px 0;
-    border: none;
-    border-radius: 4px;
-    font-size: 1em;
-    cursor: pointer;
-    flex: 1; /* Allows buttons to have equal widths */
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    display: block;
-}
-
-.fancy-button:hover {
-    background-color: #007aff;
-    transform: translateY(-2px);
-}
-
-.fancy-button:active {
-    transform: translateY(0);
-}
 
 #progress-message {
     margin-top: 20px;
@@ -324,4 +302,148 @@ h3 {
     color: #fff;
     text-decoration: none;
     cursor: pointer;
+}
+
+/* Upload Section Styles */
+.upload-section {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.upload-section h3 {
+    margin: 0;
+    margin-right: 10px;
+    font-size: 1.5em; /* Match your existing h3 size */
+    color: #ff00ff; /* Use existing heading color */
+}
+
+/* Model Selection Styles */
+#model-selection {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.model-label {
+    margin-right: 10px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.radio-container {
+    display: flex;
+    align-items: center;
+    position: relative;
+    padding-left: 25px;
+    margin-right: 15px;
+    cursor: pointer;
+    font-size: 1em;
+    user-select: none;
+    color: #fff;
+}
+
+/* Hide the default radio button */
+.radio-container input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* Custom radio button */
+.radio-container .checkmark {
+    position: absolute;
+    left: 0;
+    top: 2px;
+    height: 16px;
+    width: 16px;
+    background-color: #2a2a2a;
+    border: 2px solid #ff00ff;
+    border-radius: 50%;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+/* When the radio button is checked */
+.radio-container input[type="radio"]:checked ~ .checkmark:after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 8px;
+    height: 8px;
+    background: #ff00ff;
+    border-radius: 50%;
+}
+
+/* Hover effect */
+.radio-container:hover input ~ .checkmark {
+    background-color: #333;
+    border-color: #007aff;
+}
+
+/* Buttons Container Styles */
+.button-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.fancy-button {
+    background-color: #005ac1;
+    color: #fff;
+    padding: 15px 30px;
+    margin: 0 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 1em;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.fancy-button:last-child {
+    margin-right: 0;
+}
+
+.fancy-button:hover {
+    background-color: #007aff;
+    transform: translateY(-2px);
+}
+
+.fancy-button:active {
+    transform: translateY(0);
+}
+
+/* Responsive Adjustments */
+@media screen and (max-width: 768px) {
+    .upload-section {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .upload-section h3 {
+        margin-bottom: 10px;
+    }
+
+    #model-selection {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .radio-container {
+        margin-bottom: 10px;
+    }
+
+    .button-container {
+        flex-direction: column;
+    }
+
+    .fancy-button {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+
+    .fancy-button:last-child {
+        margin-bottom: 0;
+    }
 }

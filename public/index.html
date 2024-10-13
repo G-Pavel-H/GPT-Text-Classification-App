@@ -38,28 +38,55 @@
                 </div>
             </div>
             <div class="right-section">
-                <h3>Upload Your CSV File:</h3>
-                <label for="csvFileInput" class="custom-file-upload" id="custom-file-upload">
-                    Choose File
-                </label>
-                <input type="file" id="csvFileInput" accept=".csv">
-                    <!-- New Section for Price Estimate -->
-                <h3>Estimated API Request Cost:</h3>
+                <!-- Upload Section -->
+                <div class="upload-section">
+                    <h3>Upload Your CSV File</h3>
+                    <label for="csvFileInput" class="custom-file-upload" id="custom-file-upload">
+                        Choose File
+                    </label>
+                    <input type="file" id="csvFileInput" accept=".csv">
+                </div>
+                <br>
+                <br>
+                <!-- Model Selection Section -->
+                <div id="model-selection">
+                    <label class="model-label"><strong>Select Model</strong></label>
+                    <label class="radio-container">GPT-3.5 Turbo
+                        <input type="radio" name="model" value="gpt-3.5-turbo" checked>
+                        <span class="checkmark"></span>
+                    </label>
+                    <label class="radio-container">GPT-4
+                        <input type="radio" name="model" value="gpt-4">
+                        <span class="checkmark"></span>
+                    </label>
+                </div>
+                <br>
+                <br>
+                <!-- Estimated Cost -->
+                <h3>Estimated API Request Cost</h3>
                 <div id="price-estimate">$0.00</div>
-
-                <h3>Define Your Categories:</h3>
+                <br>
+                <br>
+                <!-- Labels Section -->
+                <h3>Define Your Categories</h3>
                 <div id="labels-container" class="labels-container">
                     <div class="label">
                         <input type="text" placeholder="Label Name" class="label-name">
                         <input type="text" placeholder="Label Definition" class="label-definition">
                     </div>
+                    <div class="label">
+                        <input type="text" placeholder="Label Name" class="label-name">
+                        <input type="text" placeholder="Label Definition" class="label-definition">
+                    </div>
                 </div>
-                <button class="fancy-button" onclick="addLabel()">Add Label</button>
 
-                <button class="fancy-button" onclick="uploadFile()">Process File</button>
+                <!-- Buttons Section -->
+                <div class="button-container">
+                    <button class="fancy-button" onclick="addLabel()">Add Label</button>
+                    <button class="fancy-button" onclick="uploadFile()">Process File</button>
+                </div>
 
                 <div id="progress-message"></div>
-                
             </div>
         </div>
     </div>
