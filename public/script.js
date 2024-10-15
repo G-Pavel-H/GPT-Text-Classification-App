@@ -50,18 +50,36 @@ function calculatePrice(file) {
 
         // Set price per thousand tokens based on the model
         let pricePerThousandTokens;
-        if (model === 'gpt-3.5-turbo') {
-            pricePerThousandTokens = 0.0015; // Example price for GPT-3.5 Turbo
-        } else if (model === 'gpt-4') {
-            pricePerThousandTokens = 0.03; // Example price for GPT-4
-        } else {
-            pricePerThousandTokens = 0.0015; // Default price
+        let pricePerOutput;
+
+        switch(model){
+            case 'gpt-4o':
+                pricePerThousandTokens = 0.00250; 
+                pricePerOutput = 0.01000;
+                break; 
+            case 'gpt-4o-mini':
+                pricePerThousandTokens = 0.000150;
+                pricePerOutput = 0.000600; 
+                break;
+            case 'o1-preview':
+                pricePerThousandTokens = 0.015;
+                pricePerOutput = 0.060;
+                break;
+            case 'o1-mini':
+                pricePerThousandTokens = 0.003; 
+                pricePerOutput = 0.012;
+            default:
+                pricePerThousandTokens = 0;  
+                pricePerOutput = 0;             
         }
+
+
         // Estimate tokens per input (adjust based on your data)
         const tokensPerInput = 50; // Average tokens per input text
         const totalTokens = numInputs * tokensPerInput;
-        // OpenAI pricing for gpt-3.5-turbo
-        const estimatedCost = (totalTokens / 1000) * pricePerThousandTokens;
+        const totalOutCost = (numInputs / 1000) * pricePerOutput;
+
+        const estimatedCost = ((totalTokens / 1000) * pricePerThousandTokens) + totalOutCost;
         // Update the price display with animation
         const priceEstimateElement = document.getElementById('price-estimate');
         animateValue(priceEstimateElement, 0, estimatedCost, 1000); // Animate over 1 second
