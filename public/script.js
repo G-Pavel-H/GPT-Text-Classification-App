@@ -13,81 +13,51 @@ let isFileValid = false;
 let selectedFile = null;
 
 function calculatePrice(file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const text = e.target.result;
-        // Parse CSV
-        const rows = text.split('\n').filter(row => row.trim() !== '');
-        // Assuming the first row is the header
-        let inputColumnIndex = -1;
-        const header = rows[0].split(',');
-        // Find the index of the "Input" column
-        for (let i = 0; i < header.length; i++) {
-            if (header[i].trim().toLowerCase() === 'input') {
-                inputColumnIndex = i;
-                break;
-            }
-        }
-        if (inputColumnIndex === -1) {
-            showCustomAlert('CSV file must contain a column named "Input".');
-            isFileValid = false; // Set the flag to false
-            // Reset price estimate
+    const model = document.querySelector('input[name="model"]:checked').value;
+
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('model', model);
+
+    // Send the file and model to the backend
+    fetch('/calculate-cost', {
+        method: 'POST',
+        body: formData
+    })
+    .then(async (response) => {
+        if (response.ok) {
+            const data = await response.json();
+            const totalCost = data.totalCost;
+
+            // Update the price display with animation
             const priceEstimateElement = document.getElementById('price-estimate');
-            priceEstimateElement.textContent = '$0.00';
-            return;
+            animateValue(priceEstimateElement, 0, totalCost, 1000); // Animate over 1 second
+
+            // Set the flag to true since the file is valid
+            isFileValid = true;
+        } else {
+            showCustomAlert('Error calculating token count.');
+            resetPriceEstimate();
         }
-        // Count the number of inputs
-        const numInputs = rows.length - 1; // Subtract 1 for header
-        if (numInputs <= 0) {
-            showCustomAlert('No data found in the "Input" column.');
-            isFileValid = false; // Set the flag to false
-            // Reset price estimate
-            const priceEstimateElement = document.getElementById('price-estimate');
-            priceEstimateElement.textContent = '$0.00';
-            return;
-        }
-        const model = document.querySelector('input[name="model"]:checked').value;
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+        showCustomAlert('An error occurred while calculating token count.');
+        resetPriceEstimate();
+    });
+}
 
-        // Set price per thousand tokens based on the model
-        let pricePerThousandTokens;
-        let pricePerOutput;
+// Helper function to reset price estimate
+function resetPriceEstimate() {
+    const priceEstimateElement = document.getElementById('price-estimate');
+    priceEstimateElement.textContent = '$0.00';
+}
 
-        switch(model){
-            case 'gpt-4o':
-                pricePerThousandTokens = 0.00250; 
-                pricePerOutput = 0.01000;
-                break; 
-            case 'gpt-4o-mini':
-                pricePerThousandTokens = 0.000150;
-                pricePerOutput = 0.000600; 
-                break;
-            case 'o1-preview':
-                pricePerThousandTokens = 0.015;
-                pricePerOutput = 0.060;
-                break;
-            case 'o1-mini':
-                pricePerThousandTokens = 0.003; 
-                pricePerOutput = 0.012;
-            default:
-                pricePerThousandTokens = 0;  
-                pricePerOutput = 0;             
-        }
-
-
-        // Estimate tokens per input (adjust based on your data)
-        const tokensPerInput = 50; // Average tokens per input text
-        const totalTokens = numInputs * tokensPerInput;
-        const totalOutCost = (numInputs / 1000) * pricePerOutput;
-
-        const estimatedCost = ((totalTokens / 1000) * pricePerThousandTokens) + totalOutCost;
-        // Update the price display with animation
-        const priceEstimateElement = document.getElementById('price-estimate');
-        animateValue(priceEstimateElement, 0, estimatedCost, 1000); // Animate over 1 second
-
-        // Set the flag to true since the file is valid
-        isFileValid = true;
-    };
-    reader.readAsText(file);
+// Helper function to reset price estimate
+function resetPriceEstimate() {
+    const priceEstimateElement = document.getElementById('price-estimate');
+    priceEstimateElement.textContent = '$0.00';
 }
 
 // Updated addLabel function
