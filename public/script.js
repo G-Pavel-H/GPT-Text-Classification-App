@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 let isFileValid = false;
 let selectedFile = null;
+let maxLabelCount = 8;
 
 function calculatePrice(file) {
     const model = document.querySelector('input[name="model"]:checked').value;
@@ -65,6 +66,11 @@ function addLabel() {
     const container = document.getElementById('labels-container');
     const labels = container.querySelectorAll('.label');
 
+    if(labels.length > maxLabelCount){
+        showCustomAlert("No more labels can be added, maximum is " + maxLabelCount);
+        return;
+    }
+    
     // If there is only one label and it doesn't have a delete button, add it
     if (labels.length === 2) {
       for (let i = 0; i < labels.length; i++) {
@@ -235,7 +241,7 @@ async function uploadFile() {
     }
 }
 
-    // Custom file input label
+ // Custom file input label
 const realFileBtn = document.getElementById('csvFileInput');
 const customBtn = document.getElementById('custom-file-upload');
 
@@ -244,30 +250,27 @@ const customBtn = document.getElementById('custom-file-upload');
     //     realFileBtn.click();
     // });
 
-    realFileBtn.addEventListener('change', function() {
-      if (realFileBtn.files && realFileBtn.files[0]) {
-          selectedFile = realFileBtn.files[0]; // Store the selected file
-          const file = selectedFile;
-          customBtn.textContent = file.name;
-          // Call calculatePrice function
-          calculatePrice(file);
-      } else {
-          customBtn.textContent = 'Choose File';
-          // Reset price estimate
-          const priceEstimateElement = document.getElementById('price-estimate');
-          priceEstimateElement.textContent = '$0.00';
-          isFileValid = false;
-          selectedFile = null; // Reset the selected file
-      }
-  });
+realFileBtn.addEventListener('change', function() {
+    if (realFileBtn.files && realFileBtn.files[0]) {
+        selectedFile = realFileBtn.files[0]; // Store the selected file
+        const file = selectedFile;
+        customBtn.textContent = file.name;
+        // Call calculatePrice function
+        calculatePrice(file);
+    } else {
+        customBtn.textContent = 'Choose File';
+        // Reset price estimate
+        const priceEstimateElement = document.getElementById('price-estimate');
+        priceEstimateElement.textContent = '$0.00';
+        isFileValid = false;
+        selectedFile = null; // Reset the selected file
+    }
+});
 
-    // Expose functions to global scope
-    window.addLabel = addLabel;
-    window.uploadFile = uploadFile;
-    window.removeLabel = removeLabel;
-
-    
-
+// Expose functions to global scope
+window.addLabel = addLabel;
+window.uploadFile = uploadFile;
+window.removeLabel = removeLabel;
 
 // Add this function to add event listeners to the model radio buttons
 function addModelChangeListeners() {

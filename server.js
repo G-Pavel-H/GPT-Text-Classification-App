@@ -1,18 +1,12 @@
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-
-
 const { encoding_for_model } = require('tiktoken');
 
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-
-
-
-
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -171,11 +165,9 @@ app.post('/calculate-cost', upload.single('file'), async (req, res) => {
       })
       .on('end', async () => {
         try {
-          // Wait for all token counts to be calculated
           const tokenCounts = await Promise.all(promises);
           totalTokens = tokenCounts.reduce((sum, count) => sum + count, 0);
 
-          // Set cost per 1000 tokens based on the model
           let costPer1000Tokens;
           let pricePerOutput;
 
@@ -202,13 +194,9 @@ app.post('/calculate-cost', upload.single('file'), async (req, res) => {
           }
 
           const totalOutCost = (numRows / 1000) * pricePerOutput;
-          // Estimate the cost
           const totalCost = ((totalTokens / 1000) * costPer1000Tokens) + totalOutCost;
 
-          // Delete the uploaded file
           fsExtra.remove(file.path);
-
-          // Free the encoding resource
           encoding.free();
 
           res.json({ totalTokens, totalCost });
