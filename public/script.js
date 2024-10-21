@@ -11,65 +11,54 @@ document.addEventListener('DOMContentLoaded', function() {
 
 let isFileValid = false;
 let selectedFile = null;
+let maxLabelCount = 8;
 
 function calculatePrice(file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const text = e.target.result;
-        // Parse CSV
-        const rows = text.split('\n').filter(row => row.trim() !== '');
-        // Assuming the first row is the header
-        let inputColumnIndex = -1;
-        const header = rows[0].split(',');
-        // Find the index of the "Input" column
-        for (let i = 0; i < header.length; i++) {
-            if (header[i].trim().toLowerCase() === 'input') {
-                inputColumnIndex = i;
-                break;
-            }
-        }
-        if (inputColumnIndex === -1) {
-            showCustomAlert('CSV file must contain a column named "Input".');
-            isFileValid = false; // Set the flag to false
-            // Reset price estimate
-            const priceEstimateElement = document.getElementById('price-estimate');
-            priceEstimateElement.textContent = '$0.00';
-            return;
-        }
-        // Count the number of inputs
-        const numInputs = rows.length - 1; // Subtract 1 for header
-        if (numInputs <= 0) {
-            showCustomAlert('No data found in the "Input" column.');
-            isFileValid = false; // Set the flag to false
-            // Reset price estimate
-            const priceEstimateElement = document.getElementById('price-estimate');
-            priceEstimateElement.textContent = '$0.00';
-            return;
-        }
-        const model = document.querySelector('input[name="model"]:checked').value;
+    const model = document.querySelector('input[name="model"]:checked').value;
 
-        // Set price per thousand tokens based on the model
-        let pricePerThousandTokens;
-        if (model === 'gpt-3.5-turbo') {
-            pricePerThousandTokens = 0.0015; // Example price for GPT-3.5 Turbo
-        } else if (model === 'gpt-4') {
-            pricePerThousandTokens = 0.03; // Example price for GPT-4
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('model', model);
+
+    // Send the file and model to the backend
+    fetch('/calculate-cost', {
+        method: 'POST',
+        body: formData
+    })
+    .then(async (response) => {
+        if (response.ok) {
+            const data = await response.json();
+            const totalCost = data.totalCost;
+
+            // Update the price display with animation
+            const priceEstimateElement = document.getElementById('price-estimate');
+            animateValue(priceEstimateElement, 0, totalCost, 1000); // Animate over 1 second
+
+            // Set the flag to true since the file is valid
+            isFileValid = true;
         } else {
-            pricePerThousandTokens = 0.0015; // Default price
+            showCustomAlert('Error calculating token count.');
+            resetPriceEstimate();
         }
-        // Estimate tokens per input (adjust based on your data)
-        const tokensPerInput = 50; // Average tokens per input text
-        const totalTokens = numInputs * tokensPerInput;
-        // OpenAI pricing for gpt-3.5-turbo
-        const estimatedCost = (totalTokens / 1000) * pricePerThousandTokens;
-        // Update the price display with animation
-        const priceEstimateElement = document.getElementById('price-estimate');
-        animateValue(priceEstimateElement, 0, estimatedCost, 1000); // Animate over 1 second
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+        showCustomAlert('An error occurred while calculating token count.');
+        resetPriceEstimate();
+    });
+}
 
-        // Set the flag to true since the file is valid
-        isFileValid = true;
-    };
-    reader.readAsText(file);
+// Helper function to reset price estimate
+function resetPriceEstimate() {
+    const priceEstimateElement = document.getElementById('price-estimate');
+    priceEstimateElement.textContent = '$0.00';
+}
+
+// Helper function to reset price estimate
+function resetPriceEstimate() {
+    const priceEstimateElement = document.getElementById('price-estimate');
+    priceEstimateElement.textContent = '$0.00';
 }
 
 // Updated addLabel function
@@ -77,6 +66,11 @@ function addLabel() {
     const container = document.getElementById('labels-container');
     const labels = container.querySelectorAll('.label');
 
+    if(labels.length > maxLabelCount){
+        showCustomAlert("No more labels can be added, maximum is " + maxLabelCount);
+        return;
+    }
+    
     // If there is only one label and it doesn't have a delete button, add it
     if (labels.length === 2) {
       for (let i = 0; i < labels.length; i++) {
@@ -247,7 +241,7 @@ async function uploadFile() {
     }
 }
 
-    // Custom file input label
+ // Custom file input label
 const realFileBtn = document.getElementById('csvFileInput');
 const customBtn = document.getElementById('custom-file-upload');
 
@@ -256,30 +250,27 @@ const customBtn = document.getElementById('custom-file-upload');
     //     realFileBtn.click();
     // });
 
-    realFileBtn.addEventListener('change', function() {
-      if (realFileBtn.files && realFileBtn.files[0]) {
-          selectedFile = realFileBtn.files[0]; // Store the selected file
-          const file = selectedFile;
-          customBtn.textContent = file.name;
-          // Call calculatePrice function
-          calculatePrice(file);
-      } else {
-          customBtn.textContent = 'Choose File';
-          // Reset price estimate
-          const priceEstimateElement = document.getElementById('price-estimate');
-          priceEstimateElement.textContent = '$0.00';
-          isFileValid = false;
-          selectedFile = null; // Reset the selected file
-      }
-  });
+realFileBtn.addEventListener('change', function() {
+    if (realFileBtn.files && realFileBtn.files[0]) {
+        selectedFile = realFileBtn.files[0]; // Store the selected file
+        const file = selectedFile;
+        customBtn.textContent = file.name;
+        // Call calculatePrice function
+        calculatePrice(file);
+    } else {
+        customBtn.textContent = 'Choose File';
+        // Reset price estimate
+        const priceEstimateElement = document.getElementById('price-estimate');
+        priceEstimateElement.textContent = '$0.00';
+        isFileValid = false;
+        selectedFile = null; // Reset the selected file
+    }
+});
 
-    // Expose functions to global scope
-    window.addLabel = addLabel;
-    window.uploadFile = uploadFile;
-    window.removeLabel = removeLabel;
-
-    
-
+// Expose functions to global scope
+window.addLabel = addLabel;
+window.uploadFile = uploadFile;
+window.removeLabel = removeLabel;
 
 // Add this function to add event listeners to the model radio buttons
 function addModelChangeListeners() {

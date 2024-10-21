@@ -1,25 +1,35 @@
-require('dotenv').config();
 
-// Add this import at the top
-const { encode } = require('gpt-3-encoder'); // Install via: npm install gpt-3-encoder
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { encoding_for_model } = require('tiktoken');
 
-const multer = require('multer');
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const OpenAI = require('openai');
-const fs = require('fs');
-const csv = require('fast-csv');
-const helmet = require('helmet');
-const fsExtra = require('fs-extra');
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Importing modules
+import multer from 'multer';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import OpenAI from 'openai';
+import fs from 'fs';
+import csv from 'fast-csv';
+import helmet from 'helmet';
+import fsExtra from 'fs-extra';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 // Initialize Express app
 const app = express();
-const path = require('path');
+
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -118,51 +128,97 @@ app.post('/upload-csv', upload.single('file'), async (req, res) => {
 });
 
 
-// Add the new endpoint for cost calculation
+
 app.post('/calculate-cost', upload.single('file'), async (req, res) => {
   const file = req.file;
-  const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
-  const model = req.body.model || 'gpt-3.5-turbo'; // Default to GPT-3.5 Turbo if not specified
+  const model = req.body.model || 'gpt-4o-mini'; 
 
   let totalTokens = 0;
+  let numRows = 0;
+  const promises = [];
 
-  fs.createReadStream(file.path)
-    .pipe(csv.parse({ headers: true }))
-    .on('data', (row) => {
-      if (row.Input) {
-        const prompt = `Categorize the following text into one of the provided labels based on their definitions:\n\nText: "${row.Input}"\n\nLabels and Definitions:\n${labels
-          .map((label, index) => `${index + 1}. ${label.name}: ${label.definition}`)
-          .join('\n')}\n\nPlease respond with the most appropriate label only.`;
+  try {
+    // Initialize encoding once
+    const encoding = await encoding_for_model('gpt-4');
 
-        const tokens = encode(prompt).length;
-        totalTokens += tokens;
-      }
-    })
-    .on('end', () => {
-      // Set cost per 1000 tokens based on the model
-      let costPer1000Tokens;
-      if (model === 'gpt-3.5-turbo') {
-        costPer1000Tokens = 0.0015; // Example price
-      } else if (model === 'gpt-4') {
-        costPer1000Tokens = 0.03; // Example price
-      } else {
-        costPer1000Tokens = 0.0015; // Default price
-      }
+    fs.createReadStream(file.path)
+      .pipe(csv.parse({ headers: true }))
+      .on('data', (row) => {
+        if (row.Input) {
+          numRows++;
 
-      // Estimate the cost
-      const totalCost = (totalTokens / 1000) * costPer1000Tokens;
+          const inputText = row.Input;
 
-      // Delete the uploaded file
-      fsExtra.remove(file.path);
+          // Encode the input text and collect the promise
+          const tokenCountPromise = (async () => {
+            try {
+              const tokens = encoding.encode(inputText);
+              return tokens.length;
+            } catch (error) {
+              console.error('Error encoding input text:', error);
+              return 0;
+            }
+          })();
 
-      res.json({ totalTokens, totalCost });
-    })
-    .on('error', (error) => {
-      console.error('Error reading CSV file:', error);
-      fsExtra.remove(file.path);
-      res.status(500).send('Error reading the file');
-    });
+          promises.push(tokenCountPromise);
+        }
+      })
+      .on('end', async () => {
+        try {
+          const tokenCounts = await Promise.all(promises);
+          totalTokens = tokenCounts.reduce((sum, count) => sum + count, 0);
+
+          let costPer1000Tokens;
+          let pricePerOutput;
+
+          switch (model) {
+            case 'gpt-4o':
+              costPer1000Tokens = 0.00250; 
+              pricePerOutput = 0.01000;
+              break; 
+            case 'gpt-4o-mini':
+              costPer1000Tokens = 0.000150;
+              pricePerOutput = 0.000600; 
+              break;
+            case 'o1-preview':
+              costPer1000Tokens = 0.015;
+              pricePerOutput = 0.060;
+              break;
+            case 'o1-mini':
+              costPer1000Tokens = 0.003; 
+              pricePerOutput = 0.012;
+              break;
+            default:
+              costPer1000Tokens = 0;  
+              pricePerOutput = 0;             
+          }
+
+          const totalOutCost = (numRows / 1000) * pricePerOutput;
+          const totalCost = ((totalTokens / 1000) * costPer1000Tokens) + totalOutCost;
+
+          fsExtra.remove(file.path);
+          encoding.free();
+
+          res.json({ totalTokens, totalCost });
+        } catch (error) {
+          console.error('Error processing token counts:', error);
+          fsExtra.remove(file.path);
+          res.status(500).send('Error processing the file');
+        }
+      })
+      .on('error', (error) => {
+        console.error('Error reading CSV file:', error);
+        fsExtra.remove(file.path);
+        res.status(500).send('Error reading the file');
+      });
+  } catch (error) {
+    console.error('Error initializing encoding:', error);
+    fsExtra.remove(file.path);
+    res.status(500).send('Error initializing the tokenizer');
+  }
 });
+
+
 
 // Start the server
 const PORT = 5555;
