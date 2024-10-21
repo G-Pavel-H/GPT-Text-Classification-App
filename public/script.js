@@ -13,6 +13,9 @@ let isFileValid = false;
 let selectedFile = null;
 let maxLabelCount = 8;
 
+let isPriceValid = false;
+let maxAllowedPrice = 0.1;
+
 function calculatePrice(file) {
     const model = document.querySelector('input[name="model"]:checked').value;
 
@@ -37,6 +40,16 @@ function calculatePrice(file) {
 
             // Set the flag to true since the file is valid
             isFileValid = true;
+
+            if(totalCost > maxAllowedPrice){
+                isPriceValid = false;
+                showCustomAlert("File is too large, exceeded price limit of $"+maxAllowedPrice+". Please upload a different, smaller file");
+                resetPriceEstimate();
+            }
+            else{
+                isPriceValid = true;
+            }
+
         } else {
             showCustomAlert('Error calculating token count.');
             resetPriceEstimate();
@@ -162,6 +175,10 @@ function removeLabel(button) {
 async function uploadFile() {
     const fileInput = document.getElementById('csvFileInput');
     const file = fileInput.files[0];
+
+    if(!isPriceValid){
+        showCustomAlert("File is too large, exceeded price limit of $"+maxAllowedPrice+". Please upload a different, smaller file");
+    }
 
     if (!file) {
         showCustomAlert('Please upload a CSV file.');
