@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
 let isFileValid = false;
 let selectedFile = null;
 let maxLabelCount = 8;
+let labelMaxLength = 5;
 
 let isPriceValid = false;
 let maxAllowedPrice = 0.1;
@@ -103,8 +104,8 @@ function addLabel() {
     newLabel.classList.add('label');
 
     newLabel.innerHTML = `
-        <input type="text" placeholder="Label Name" class="label-name">
-        <input type="text" placeholder="Label Definition" class="label-definition">
+        <input type="text" placeholder="Label Name" class="label-name" maxlength="5">
+        <input type="text" placeholder="Label Definition" class="label-definition" maxlength="5">
     `;
 
     // Append delete button to new label
@@ -204,15 +205,18 @@ async function uploadFile() {
             console.error('Missing input elements in label:', labelElement);
             return null;
         }
-
         return {
             name: nameInput.value.trim(),
             definition: definitionInput.value.trim()
         };
-    }).filter(label => label !== null);
+}).filter(label => label !== null);
 
-    if (labels.some(label => label.name === '' || label.definition === '')) {
+    if (labels.some(label => label.name === '' || label.definition === '' )) {
         showCustomAlert('Please fill in all Label names and definitions.');
+        return;
+    }
+    if (labels.some(label => label.name.length > labelMaxLength || label.definition.length > labelMaxLength)) {
+        showCustomAlert('Label has exeded the limit of characters - '+labelMaxLength+'.');
         return;
     }
     const model = document.querySelector('input[name="model"]:checked').value;
