@@ -34,6 +34,7 @@ function validateFile(file){
             }
         }
         if (inputColumnIndex === -1) {
+            customBtn.textContent = 'Choose File';
             showCustomAlert('CSV file must contain a column named "Input".');
             isFileValid = false; // Set the flag to false
             resetPriceEstimate();
@@ -288,11 +289,6 @@ async function uploadFile() {
 const realFileBtn = document.getElementById('csvFileInput');
 const customBtn = document.getElementById('custom-file-upload');
 
-    // Remove the click event listener
-    // customBtn.addEventListener('click', function() {
-    //     realFileBtn.click();
-    // });
-
 realFileBtn.addEventListener('change', function() {
     if (realFileBtn.files && realFileBtn.files[0] && validateFile(realFileBtn.files[0])) {
         selectedFile = realFileBtn.files[0]; // Store the selected file
@@ -301,7 +297,6 @@ realFileBtn.addEventListener('change', function() {
         // Call calculatePrice function
         calculatePrice(file);
     } else {
-        customBtn.textContent = 'Choose File';
         // Reset price estimate
         resetPriceEstimate();
         isFileValid = false;
