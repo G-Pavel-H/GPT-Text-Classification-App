@@ -17,7 +17,36 @@ let labelMaxLength = 5;
 let isPriceValid = false;
 let maxAllowedPrice = 0.1;
 
+function validateFile(file){
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        // Parse CSV
+        const rows = text.split('\n').filter(row => row.trim() !== '');
+        // Assuming the first row is the header
+        let inputColumnIndex = -1;
+        const header = rows[0].split(',');
+        // Find the index of the "Input" column
+        for (let i = 0; i < header.length; i++) {
+            if (header[i].trim().toLowerCase() === 'input') {
+                inputColumnIndex = i;
+                break;
+            }
+        }
+        if (inputColumnIndex === -1) {
+            showCustomAlert('CSV file must contain a column named "Input".');
+            isFileValid = false; // Set the flag to false
+            resetPriceEstimate();
+            return false;
+        }
+    }
+    reader.readAsText(file);
+    isFileValid = true;
+    return true;
+}
+
 function calculatePrice(file) {
+
     const model = document.querySelector('input[name="model"]:checked').value;
 
     // Prepare form data
@@ -39,8 +68,6 @@ function calculatePrice(file) {
             const priceEstimateElement = document.getElementById('price-estimate');
             animateValue(priceEstimateElement, 0, totalCost, 1000); // Animate over 1 second
 
-            // Set the flag to true since the file is valid
-            isFileValid = true;
 
             if(totalCost > maxAllowedPrice){
                 isPriceValid = false;
@@ -61,12 +88,7 @@ function calculatePrice(file) {
         showCustomAlert('An error occurred while calculating token count.');
         resetPriceEstimate();
     });
-}
 
-// Helper function to reset price estimate
-function resetPriceEstimate() {
-    const priceEstimateElement = document.getElementById('price-estimate');
-    priceEstimateElement.textContent = '$0.00';
 }
 
 // Helper function to reset price estimate
@@ -104,8 +126,8 @@ function addLabel() {
     newLabel.classList.add('label');
 
     newLabel.innerHTML = `
-        <input type="text" placeholder="Label Name" class="label-name" maxlength="5">
-        <input type="text" placeholder="Label Definition" class="label-definition" maxlength="5">
+        <input type="text" placeholder="Label Name" class="label-name" maxlength="${maxLabelCount}">
+        <input type="text" placeholder="Label Definition" class="label-definition" maxlength="${maxLabelCount}">
     `;
 
     // Append delete button to new label
@@ -272,7 +294,7 @@ const customBtn = document.getElementById('custom-file-upload');
     // });
 
 realFileBtn.addEventListener('change', function() {
-    if (realFileBtn.files && realFileBtn.files[0]) {
+    if (realFileBtn.files && realFileBtn.files[0] && validateFile(realFileBtn.files[0])) {
         selectedFile = realFileBtn.files[0]; // Store the selected file
         const file = selectedFile;
         customBtn.textContent = file.name;
@@ -281,8 +303,7 @@ realFileBtn.addEventListener('change', function() {
     } else {
         customBtn.textContent = 'Choose File';
         // Reset price estimate
-        const priceEstimateElement = document.getElementById('price-estimate');
-        priceEstimateElement.textContent = '$0.00';
+        resetPriceEstimate();
         isFileValid = false;
         selectedFile = null; // Reset the selected file
     }
@@ -298,7 +319,7 @@ function addModelChangeListeners() {
   const modelRadioButtons = document.querySelectorAll('input[name="model"]');
   modelRadioButtons.forEach(radio => {
       radio.addEventListener('change', function() {
-          if (selectedFile) {
+          if (selectedFile && validateFile(selectedFile)) {
               calculatePrice(selectedFile);
           }
       });
