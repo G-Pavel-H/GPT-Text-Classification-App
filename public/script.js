@@ -209,7 +209,7 @@ async function uploadFile() {
     }
 
     if (!isFileValid) {
-        showCustomAlert('The CSV file is invalid. Please upload a valid CSV file.');
+        showCustomAlert('Invalid file. Please upload a valid CSV file.');
         return;
     }
 
