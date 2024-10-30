@@ -78,7 +78,7 @@ async function getLabel(text, labels, model) {
 app.post('/upload-csv', upload.single('file'), async (req, res) => {
   const file = req.file;
   const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
-  const model = req.body.model || 'gpt-3.5-turbo'; // Default to GPT-3.5 Turbo if not specified
+  const model = req.body.model || 'gpt-4o-mini'; 
 
   const writeStream = fs.createWriteStream(`output-${file.filename}.csv`);
   const csvStream = csv.format({ headers: ['Input', 'Output'] });
@@ -179,14 +179,22 @@ app.post('/calculate-cost', upload.single('file'), async (req, res) => {
               costPer1000Tokens = 0.000150;
               pricePerOutput = 0.000600; 
               break;
-            case 'o1-preview':
-              costPer1000Tokens = 0.015;
-              pricePerOutput = 0.060;
+            case 'gpt-4-turbo':
+              costPer1000Tokens = 0.0100; 
+              pricePerOutput = 0.0300;
               break;
-            case 'o1-mini':
-              costPer1000Tokens = 0.003; 
-              pricePerOutput = 0.012;
+            case 'gpt-4':
+              costPer1000Tokens = 0.0300; 
+              pricePerOutput = 0.0600;
               break;
+            // case 'o1-preview':
+            //   costPer1000Tokens = 0.015;
+            //   pricePerOutput = 0.060;
+            //   break;
+            // case 'o1-mini':
+            //   costPer1000Tokens = 0.003; 
+            //   pricePerOutput = 0.012;
+            //   break;
             default:
               costPer1000Tokens = 0;  
               pricePerOutput = 0;             
@@ -197,8 +205,8 @@ app.post('/calculate-cost', upload.single('file'), async (req, res) => {
 
           fsExtra.remove(file.path);
           encoding.free();
-
-          res.json({ totalTokens, totalCost });
+          
+          res.json({ totalTokens, totalCost: totalCost.toFixed(10)});
         } catch (error) {
           console.error('Error processing token counts:', error);
           fsExtra.remove(file.path);

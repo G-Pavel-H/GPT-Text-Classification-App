@@ -3,6 +3,7 @@ import { PriceCalculator } from "./js/priceCalculator.js";
 import { LabelManager } from "./js/labelManager.js";
 import { UIManager } from "./js/uiManager.js";
 import { FileUploader } from "./js/fileUploader.js";
+import { CONFIG } from "./js/constants.js";
 
 class App {
     constructor() {
@@ -21,6 +22,24 @@ class App {
             this.initializeFileInput();
             this.initializeModelChangeListeners();
             this.initializePreloader();
+            this.initializeLabelInputListener();
+        });
+    }
+
+    initializeLabelInputListener(){
+        const labelNameInputs = document.querySelectorAll(".label-name");
+        const labelDefInputs = document.querySelectorAll(".label-definition");
+
+        // Label name
+        labelNameInputs.forEach(function(labelNameInput) {
+            labelNameInput.setAttribute("maxlength", CONFIG.LABEL_NAME_MAX_CHAR_COUNT);
+            labelNameInput.setAttribute("placeholder", `Label Name (Max: ${CONFIG.LABEL_NAME_MAX_CHAR_COUNT})`);
+        });
+
+        //Label Definition
+        labelDefInputs.forEach(function(labelDefInput) {
+            labelDefInput.setAttribute("maxlength", CONFIG.LABEL_DEF_MAX_CHAR_COUNT);
+            labelDefInput.setAttribute("placeholder", `Label Definition (Max: ${CONFIG.LABEL_DEF_MAX_CHAR_COUNT})`);
         });
     }
 
@@ -133,6 +152,7 @@ class App {
 
 // Initialize the application
 const app = new App();
+
 
 // Expose necessary functions to global scope
 window.addLabel = () => {
