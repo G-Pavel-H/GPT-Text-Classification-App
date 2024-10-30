@@ -8,8 +8,8 @@ export class LabelManager {
     addLabel() {
         const labels = this.container.querySelectorAll('.label');
         
-        if (labels.length >= CONFIG.MAX_LABEL_COUNT_CHAR) {
-            throw new Error(`No more labels can be added, maximum is ${CONFIG.MAX_LABEL_COUNT_CHAR}`);
+        if (labels.length >= CONFIG.MAX_LABEL_COUNT) {
+            throw new Error(`No more labels can be added, maximum is ${CONFIG.MAX_LABEL_COUNT}`);
         }
 
         if (labels.length === 2) {
@@ -25,8 +25,8 @@ export class LabelManager {
         newLabel.classList.add('label');
         
         newLabel.innerHTML = `
-            <input type="text" placeholder="Label Name" class="label-name" maxlength="${CONFIG.LABEL_MAX_LENGTH}">
-            <input type="text" placeholder="Label Definition" class="label-definition" maxlength="${CONFIG.LABEL_MAX_LENGTH}">
+            <input type="text" placeholder="Label Name (Max: ${CONFIG.LABEL_NAME_MAX_CHAR_COUNT})" class="label-name" maxlength="${CONFIG.LABEL_NAME_MAX_CHAR_COUNT}">
+            <input type="text" placeholder="Label Definition (Max: ${CONFIG.LABEL_DEF_MAX_CHAR_COUNT})" class="label-definition" maxlength="${CONFIG.LABEL_DEF_MAX_CHAR_COUNT}">
         `;
 
         const deleteButton = this.createDeleteButton();
@@ -88,9 +88,9 @@ export class LabelManager {
         }
 
         if (labels.some(label => 
-            label.name.length > CONFIG.LABEL_MAX_LENGTH || 
-            label.definition.length > CONFIG.LABEL_MAX_LENGTH)) {
-            throw new Error(`Label has exceeded the limit of characters - ${CONFIG.LABEL_MAX_LENGTH}.`);
+            label.name.length > CONFIG.LABEL_NAME_MAX_CHAR_COUNT || 
+            label.definition.length > CONFIG.LABEL_DEF_MAX_CHAR_COUNT)) {
+            throw new Error(`Label has exceeded the limit of characters - ${CONFIG.LABEL_NAME_MAX_CHAR_COUNT}.`);
         }
 
         return labels;

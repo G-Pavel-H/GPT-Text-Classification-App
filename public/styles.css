@@ -81,14 +81,12 @@ h1 {
     font-size: 2.5em;
     margin-bottom: 20px;
     animation: fadeIn 3s ease-in-out;
-    color: #007aff;
 }
 
 h3 {
     font-size: 1.5em;
     margin-bottom: 10px;
     animation: slideIn 3s ease-in-out;
-    color: #007aff;
 }
 
 p, ul, ol {
