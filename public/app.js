@@ -164,3 +164,9 @@ window.addLabel = () => {
 };
 
 window.uploadFile = () => app.handleUpload();
+window.onclick = function(event) {
+    const modal = document.getElementById('contact-form-modal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
