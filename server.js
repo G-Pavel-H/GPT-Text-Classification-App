@@ -38,92 +38,123 @@ app.use(helmet());
 
 // Setup file upload
 const upload = multer({ dest: 'uploads/' });
+// Batch size configuration
+const BATCH_SIZE = 20; // Adjust based on your needs and API limits
 
-// Helper function to call ChatGPT API
-async function getLabel(text, labels, model) {
-  const messages = [
-    {
-      role: 'system',
-      content:
-        'You are an assistant that categorizes text based on provided labels and definitions.',
-    },
-    {
-      role: 'user',
-      content: `Categorize the following text into one of the provided labels based on their definitions:\n\nText: "${text}"\n\nLabels and Definitions:\n${labels
-        .map(
-          (label, index) =>
-            `${index + 1}. ${label.name}: ${label.definition}`
-        )
-        .join('\n')}\n\nPlease respond with the most appropriate label only.`,
-    },
-  ];
+async function processBatch(texts, labels, model) {
+  const messages = texts.map(text => ({
+    messages: [
+      {
+        role: 'system',
+        content: 'You are an assistant that categorizes text based on provided labels and definitions.',
+      },
+      {
+        role: 'user',
+        content: `Categorize the following text into one of the provided labels based on their definitions:\n\nText: "${text}"\n\nLabels and Definitions:\n${labels
+          .map(
+            (label, index) =>
+              `${index + 1}. ${label.name}: ${label.definition}`
+          )
+          .join('\n')}\n\nPlease respond with the most appropriate label only.`,
+      }
+    ]
+  }));
 
   try {
     const response = await openai.chat.completions.create({
-      model: model, // Use the selected model
-      messages: messages,
+      model: model,
+      messages: messages[0].messages, // First message as the template
       temperature: 0.2,
+      n: texts.length // Number of completions to generate
     });
 
-    return response.choices[0].message.content.trim();
+    return response.choices.map(choice => choice.message.content.trim());
   } catch (error) {
     console.error(
       'Error with OpenAI API:',
       error.response ? error.response.data : error.message
     );
-    return 'Error';
+    return Array(texts.length).fill('Error');
   }
 }
-// Endpoint to handle CSV file upload
+
+async function processCSVInBatches(inputRows, labels, model) {
+  const results = [];
+  
+  for (let i = 0; i < inputRows.length; i += BATCH_SIZE) {
+    const batch = inputRows.slice(i, i + BATCH_SIZE);
+    const texts = batch.map(row => row.Input);
+    
+    // Add delay between batches to respect rate limits
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+    }
+    
+    const batchResults = await processBatch(texts, labels, model);
+    
+    // Combine original inputs with results
+    batch.forEach((row, index) => {
+      results.push({
+        Input: row.Input,
+        Output: batchResults[index]
+      });
+    });
+  }
+  
+  return results;
+}
+
+// Modified endpoint to handle CSV file upload
 app.post('/upload-csv', upload.single('file'), async (req, res) => {
   const file = req.file;
   const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
-  const model = req.body.model || 'gpt-4o-mini'; 
-
-  const writeStream = fs.createWriteStream(`output-${file.filename}.csv`);
-  const csvStream = csv.format({ headers: ['Input', 'Output'] });
-  csvStream.pipe(writeStream);
-
-  const promises = [];
-
-  fs.createReadStream(file.path)
-    .pipe(csv.parse({ headers: true }))
-    .on('error', (error) => {
-      console.error('Error reading CSV file:', error);
-      res.status(500).send('Error reading the file');
-    })
-    .on('data', (row) => {
-      if (row.Input) {
-        const promise = getLabel(row.Input, labels, model).then((label) => {
-          csvStream.write({ Input: row.Input, Output: label });
-        });
-        promises.push(promise);
-      }
-    })
-    .on('end', () => {
-      Promise.all(promises)
-        .then(() => {
-          csvStream.end();
-          res.download(
-            `output-${file.filename}.csv`,
-            `output-${file.filename}.csv`,
-            (err) => {
-              if (err) {
-                console.error('Error during download:', err);
-                res.status(500).send('Error generating the file');
-              } else {
-                // Delete the uploaded file and the output file
-                fsExtra.remove(file.path);
-                fsExtra.remove(`output-${file.filename}.csv`);
-              }
-            }
-          );
+  const model = req.body.model || 'gpt-4-turbo-preview';
+  
+  try {
+    // Read all rows from CSV first
+    const inputRows = [];
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(file.path)
+        .pipe(csv.parse({ headers: true }))
+        .on('error', reject)
+        .on('data', row => {
+          if (row.Input) {
+            inputRows.push(row);
+          }
         })
-        .catch((error) => {
-          console.error('Error processing CSV:', error);
-          res.status(500).send('Error processing the file');
-        });
+        .on('end', resolve);
     });
+
+    // Process all rows in batches
+    const results = await processCSVInBatches(inputRows, labels, model);
+
+    // Write results to output CSV
+    const outputPath = `output-${file.filename}.csv`;
+    const writeStream = fs.createWriteStream(outputPath);
+    const csvStream = csv.format({ headers: true });
+    csvStream.pipe(writeStream);
+    
+    results.forEach(result => csvStream.write(result));
+    csvStream.end();
+
+    // Wait for the file to be written
+    await new Promise(resolve => writeStream.on('finish', resolve));
+
+    // Send the file back to the client
+    res.download(outputPath, outputPath, (err) => {
+      if (err) {
+        console.error('Error during download:', err);
+        res.status(500).send('Error generating the file');
+      } else {
+        // Clean up files
+        fsExtra.remove(file.path);
+        fsExtra.remove(outputPath);
+      }
+    });
+  } catch (error) {
+    console.error('Error processing CSV:', error);
+    res.status(500).send('Error processing the file');
+  }
 });
 
 
