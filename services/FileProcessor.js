@@ -2,17 +2,22 @@ import fs from 'fs';
 import csv from 'fast-csv';
 import fsExtra from 'fs-extra';
 import {encoding_for_model} from "tiktoken";
+import pLimit from 'p-limit';
+import {CONFIG} from "../config.js";
 
 export class FileProcessor {
-    static async processCSVForLabeling(file, labels, model, openAIService) {
+    static async processCSVForLabeling(file, labels, model, openAIService, rateLimiter) {
         const outputPath = `output-${file.filename}.csv`;
         const writeStream = fs.createWriteStream(outputPath);
         const csvStream = csv.format({ headers: ['Input', 'Output'] });
         csvStream.pipe(writeStream);
 
-        const promises = [];
+        const encoding = await encoding_for_model(model);
 
-        return new Promise((resolve, reject) => {
+        const rows = [];
+
+        // Read all rows into an array
+        await new Promise((resolve, reject) => {
             fs.createReadStream(file.path)
                 .pipe(csv.parse({ headers: true }))
                 .on('error', (error) => {
@@ -21,20 +26,46 @@ export class FileProcessor {
                 })
                 .on('data', (row) => {
                     if (row.Input) {
-                        const promise = openAIService.getLabel(row.Input, labels, model)
-                            .then(label => csvStream.write({ Input: row.Input, Output: label }));
-                        promises.push(promise);
+                        rows.push(row);
                     }
                 })
-                .on('end', () => {
-                    Promise.all(promises)
-                        .then(() => {
-                            csvStream.end();
-                            resolve(outputPath);
-                        })
-                        .catch(reject);
-                });
+                .on('end', resolve);
         });
+
+        // Implement controlled concurrency
+        const concurrencyLevel = CONFIG.concurrency_level_api;
+        const limit = pLimit(concurrencyLevel);
+        const promises = rows.map((row) =>
+            limit(async () => {
+                try {
+                    const tokens = encoding.encode(row.Input).length;
+
+                    // Check if daily limits would be exceeded for this request
+                    if (rateLimiter.isDailyLimitExceeded(tokens, 1)) {
+                        throw new Error('Daily token or request limit would be exceeded during processing');
+                    }
+
+                    // Wait for rate limiter
+                    await rateLimiter.waitForRateLimit(tokens);
+
+                    // Make the API call
+                    const label = await openAIService.getLabel(row.Input, labels, model);
+
+                    // Write to CSV
+                    csvStream.write({ Input: row.Input, Output: label });
+                } catch (error) {
+                    console.error(`Error processing row: ${row.Input}`, error);
+                    // Optionally handle errors (e.g., skip the row or retry logic)
+                }
+            })
+        );
+
+        // Wait for all promises to complete
+        await Promise.all(promises);
+
+        csvStream.end();
+        encoding.free();
+        return outputPath;
     }
 
     static async calculateTokens(file) {

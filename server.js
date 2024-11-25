@@ -9,6 +9,10 @@ import { CONFIG } from './config.js';
 import { OpenAIService } from './models/OpenAiService.js';
 import { CostCalculator } from './models/CostCalculator.js';
 import { FileProcessor } from './services/FileProcessor.js';
+import {encoding_for_model} from "tiktoken";
+import fs from "fs";
+import csv from "fast-csv";
+import {RateLimiter} from "./models/RateLimiter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,11 +38,59 @@ class Server {
       try {
         const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
         const model = req.body.model || CONFIG.DEFAULT_MODEL;
+
+        // Calculate total tokens and rows before processing
+        const encoding = await encoding_for_model(model);
+        let totalTokens = 0;
+        let numRows = 0;
+
+        // First pass to calculate total tokens
+        const tokenPromises = [];
+        await new Promise((resolve, reject) => {
+          fs.createReadStream(req.file.path)
+              .pipe(csv.parse({ headers: true }))
+              .on('data', (row) => {
+                if (row.Input) {
+                  numRows++;
+                  tokenPromises.push((async () => {
+                    try {
+                      const tokens = encoding.encode(row.Input);
+                      return tokens.length;
+                    } catch (error) {
+                      console.error('Error encoding input text:', error);
+                      return 0;
+                    }
+                  })());
+                }
+              })
+              .on('end', async () => {
+                try {
+                  const tokenCounts = await Promise.all(tokenPromises);
+                  totalTokens = tokenCounts.reduce((sum, count) => sum + count, 0);
+                  encoding.free();
+                  resolve();
+                } catch (error) {
+                  reject(error);
+                }
+              })
+              .on('error', reject);
+        });
+
+        // Initialize rate limiter
+        const rateLimiter = new RateLimiter(model);
+
+        // Check if daily limits would be exceeded
+        if (rateLimiter.isDailyLimitExceeded(totalTokens, numRows)) {
+          throw new Error('Daily token or request limit would be exceeded');
+        }
+
+        // Process CSV and generate output
         const outputPath = await FileProcessor.processCSVForLabeling(
             req.file,
             labels,
             model,
-            this.openAIService
+            this.openAIService,
+            rateLimiter // Pass the rateLimiter instance
         );
 
         res.download(outputPath, async (err) => {
@@ -51,7 +103,13 @@ class Server {
       } catch (error) {
         console.error('Error processing CSV:', error);
         await FileProcessor.cleanup(req.file.path);
-        res.status(500).send('Error processing the file');
+
+        // Specific error handling
+        if (error.message.includes('Daily token or request limit')) {
+          res.status(429).send('Daily API limit would be exceeded');
+        } else {
+          res.status(500).send('Error processing the file');
+        }
       }
     });
 
