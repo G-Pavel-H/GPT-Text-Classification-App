@@ -1,234 +1,148 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const { encoding_for_model } = require('tiktoken');
-
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import dotenv from 'dotenv';
-dotenv.config();
-
-// Importing modules
 import multer from 'multer';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import OpenAI from 'openai';
-import fs from 'fs';
-import csv from 'fast-csv';
 import helmet from 'helmet';
-import fsExtra from 'fs-extra';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { CONFIG } from './config.js';
+import { OpenAIService } from './models/OpenAiService.js';
+import { CostCalculator } from './models/CostCalculator.js';
+import { FileProcessor } from './services/FileProcessor.js';
+import {encoding_for_model} from "tiktoken";
+import fs from "fs";
+import csv from "fast-csv";
+import {RateLimiter} from "./models/RateLimiter.js";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
 
-// Initialize Express app
-const app = express();
+class Server {
+  constructor() {
+    this.app = express();
+    this.openAIService = new OpenAIService(CONFIG.OPENAI_API_KEY);
+    this.upload = multer({ dest: CONFIG.UPLOAD_DIR });
+    this.setupMiddleware();
+    this.setupRoutes();
+  }
 
+  setupMiddleware() {
+    this.app.use(express.static(path.join(__dirname, 'public')));
+    this.app.use(bodyParser.json());
+    this.app.use(cors());
+    this.app.use(helmet());
+  }
 
-// Serve static files from the 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(bodyParser.json());
-app.use(cors());
-app.use(helmet());
+  setupRoutes() {
+    this.app.post('/upload-csv', this.upload.single('file'), async (req, res) => {
+      try {
+        const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
+        const model = req.body.model || CONFIG.DEFAULT_MODEL;
 
-// Setup file upload
-const upload = multer({ dest: 'uploads/' });
+        // Calculate total tokens and rows before processing
+        const encoding = await encoding_for_model(model);
+        let totalTokens = 0;
+        let numRows = 0;
 
-// Helper function to call ChatGPT API
-async function getLabel(text, labels, model) {
-  const messages = [
-    {
-      role: 'system',
-      content:
-        'You are an assistant that categorizes text based on provided labels and definitions.',
-    },
-    {
-      role: 'user',
-      content: `Categorize the following text into one of the provided labels based on their definitions:\n\nText: "${text}"\n\nLabels and Definitions:\n${labels
-        .map(
-          (label, index) =>
-            `${index + 1}. ${label.name}: ${label.definition}`
-        )
-        .join('\n')}\n\nPlease respond with the most appropriate label only.`,
-    },
-  ];
+        // First pass to calculate total tokens
+        const tokenPromises = [];
+        await new Promise((resolve, reject) => {
+          fs.createReadStream(req.file.path)
+              .pipe(csv.parse({ headers: true }))
+              .on('data', (row) => {
+                if (row.Input) {
+                  numRows++;
+                  tokenPromises.push((async () => {
+                    try {
+                      const tokens = encoding.encode(row.Input);
+                      return tokens.length;
+                    } catch (error) {
+                      console.error('Error encoding input text:', error);
+                      return 0;
+                    }
+                  })());
+                }
+              })
+              .on('end', async () => {
+                try {
+                  const tokenCounts = await Promise.all(tokenPromises);
+                  totalTokens = tokenCounts.reduce((sum, count) => sum + count, 0);
+                  encoding.free();
+                  resolve();
+                } catch (error) {
+                  reject(error);
+                }
+              })
+              .on('error', reject);
+        });
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: model, // Use the selected model
-      messages: messages,
-      temperature: 0.2,
+        // Initialize rate limiter
+        const rateLimiter = new RateLimiter(model);
+
+        // Check if daily limits would be exceeded
+        if (rateLimiter.isDailyLimitExceeded(totalTokens, numRows)) {
+          throw new Error('Daily token or request limit would be exceeded');
+        }
+
+        // Process CSV and generate output
+        const outputPath = await FileProcessor.processCSVForLabeling(
+            req.file,
+            labels,
+            model,
+            this.openAIService,
+            rateLimiter // Pass the rateLimiter instance
+        );
+
+        res.download(outputPath, async (err) => {
+          if (err) {
+            console.error('Error during download:', err);
+            res.status(500).send('Error generating the file');
+          }
+          await FileProcessor.cleanup([req.file.path, outputPath]);
+        });
+      } catch (error) {
+        console.error('Error processing CSV:', error);
+        await FileProcessor.cleanup([req.file.path].filter(Boolean));
+
+        // Handle specific errors
+        if (error.message.includes('Daily token or request limit'))
+        {
+          res.status(429).json({ error: 'Daily API limit would be exceeded' });
+        }
+        else if (error.response && error.response.status === 429)
+        {
+          // Handle OpenAI API rate limit errors
+          res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
+        }
+        else
+        {
+          res.status(500).json({ error: 'An error occurred during processing', details: error.message });
+        }
+      }
     });
 
-    return response.choices[0].message.content.trim();
-  } catch (error) {
-    console.error(
-      'Error with OpenAI API:',
-      error.response ? error.response.data : error.message
-    );
-    return 'Error';
+    this.app.post('/calculate-cost', this.upload.single('file'), async (req, res) => {
+      try {
+        const model = req.body.model || CONFIG.DEFAULT_MODEL;
+        const { totalTokens, numRows } = await FileProcessor.calculateTokens(req.file);
+        const totalCost = CostCalculator.calculateCost(model, totalTokens, numRows);
+
+        await FileProcessor.cleanup(req.file.path);
+        res.json({ totalTokens, totalCost });
+      } catch (error) {
+        console.error('Error calculating cost:', error);
+        await FileProcessor.cleanup(req.file.path);
+        res.status(500).send('Error processing the file');
+      }
+    });
+  }
+
+  start() {
+    this.app.listen(CONFIG.PORT, () => {
+      console.log(`Server running on http://localhost:${CONFIG.PORT}`);
+    });
   }
 }
-// Endpoint to handle CSV file upload
-app.post('/upload-csv', upload.single('file'), async (req, res) => {
-  const file = req.file;
-  const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
-  const model = req.body.model || 'gpt-4o-mini'; 
 
-  const writeStream = fs.createWriteStream(`output-${file.filename}.csv`);
-  const csvStream = csv.format({ headers: ['Input', 'Output'] });
-  csvStream.pipe(writeStream);
-
-  const promises = [];
-
-  fs.createReadStream(file.path)
-    .pipe(csv.parse({ headers: true }))
-    .on('error', (error) => {
-      console.error('Error reading CSV file:', error);
-      res.status(500).send('Error reading the file');
-    })
-    .on('data', (row) => {
-      if (row.Input) {
-        const promise = getLabel(row.Input, labels, model).then((label) => {
-          csvStream.write({ Input: row.Input, Output: label });
-        });
-        promises.push(promise);
-      }
-    })
-    .on('end', () => {
-      Promise.all(promises)
-        .then(() => {
-          csvStream.end();
-          res.download(
-            `output-${file.filename}.csv`,
-            `output-${file.filename}.csv`,
-            (err) => {
-              if (err) {
-                console.error('Error during download:', err);
-                res.status(500).send('Error generating the file');
-              } else {
-                // Delete the uploaded file and the output file
-                fsExtra.remove(file.path);
-                fsExtra.remove(`output-${file.filename}.csv`);
-              }
-            }
-          );
-        })
-        .catch((error) => {
-          console.error('Error processing CSV:', error);
-          res.status(500).send('Error processing the file');
-        });
-    });
-});
-
-
-
-app.post('/calculate-cost', upload.single('file'), async (req, res) => {
-  const file = req.file;
-  const model = req.body.model || 'gpt-4o-mini'; 
-
-  let totalTokens = 0;
-  let numRows = 0;
-  const promises = [];
-
-  try {
-    // Initialize encoding once
-    const encoding = await encoding_for_model('gpt-4');
-
-    fs.createReadStream(file.path)
-      .pipe(csv.parse({ headers: true }))
-      .on('data', (row) => {
-        if (row.Input) {
-          numRows++;
-
-          const inputText = row.Input;
-
-          // Encode the input text and collect the promise
-          const tokenCountPromise = (async () => {
-            try {
-              const tokens = encoding.encode(inputText);
-              return tokens.length;
-            } catch (error) {
-              console.error('Error encoding input text:', error);
-              return 0;
-            }
-          })();
-
-          promises.push(tokenCountPromise);
-        }
-      })
-      .on('end', async () => {
-        try {
-          const tokenCounts = await Promise.all(promises);
-          totalTokens = tokenCounts.reduce((sum, count) => sum + count, 0);
-
-          let costPer1000Tokens;
-          let pricePerOutput;
-
-          switch (model) {
-            case 'gpt-4o':
-              costPer1000Tokens = 0.00250; 
-              pricePerOutput = 0.01000;
-              break; 
-            case 'gpt-4o-mini':
-              costPer1000Tokens = 0.000150;
-              pricePerOutput = 0.000600; 
-              break;
-            case 'gpt-4-turbo':
-              costPer1000Tokens = 0.0100; 
-              pricePerOutput = 0.0300;
-              break;
-            case 'gpt-4':
-              costPer1000Tokens = 0.0300; 
-              pricePerOutput = 0.0600;
-              break;
-            // case 'o1-preview':
-            //   costPer1000Tokens = 0.015;
-            //   pricePerOutput = 0.060;
-            //   break;
-            // case 'o1-mini':
-            //   costPer1000Tokens = 0.003; 
-            //   pricePerOutput = 0.012;
-            //   break;
-            default:
-              costPer1000Tokens = 0;  
-              pricePerOutput = 0;             
-          }
-
-          const totalOutCost = (numRows / 1000) * pricePerOutput;
-          const totalCost = ((totalTokens / 1000) * costPer1000Tokens) + totalOutCost;
-
-          fsExtra.remove(file.path);
-          encoding.free();
-          
-          res.json({ totalTokens, totalCost: totalCost.toFixed(10)});
-        } catch (error) {
-          console.error('Error processing token counts:', error);
-          fsExtra.remove(file.path);
-          res.status(500).send('Error processing the file');
-        }
-      })
-      .on('error', (error) => {
-        console.error('Error reading CSV file:', error);
-        fsExtra.remove(file.path);
-        res.status(500).send('Error reading the file');
-      });
-  } catch (error) {
-    console.error('Error initializing encoding:', error);
-    fsExtra.remove(file.path);
-    res.status(500).send('Error initializing the tokenizer');
-  }
-});
-
-
-
-// Start the server
-const PORT = 5555;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+const server = new Server();
+server.start();
