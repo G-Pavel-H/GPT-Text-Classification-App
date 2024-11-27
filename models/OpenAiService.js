@@ -27,7 +27,7 @@ export class OpenAIService {
             return response.choices[0].message.content.trim();
         } catch (error) {
             console.error('Error with OpenAI API:', error.response ? error.response.data : error.message);
-            return 'Error';
+            throw error;
         }
     }
 }

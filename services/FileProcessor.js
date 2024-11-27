@@ -55,7 +55,7 @@ export class FileProcessor {
                     csvStream.write({ Input: row.Input, Output: label });
                 } catch (error) {
                     console.error(`Error processing row: ${row.Input}`, error);
-                    // Optionally handle errors (e.g., skip the row or retry logic)
+                    throw error;
                 }
             })
         );

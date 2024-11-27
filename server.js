@@ -102,13 +102,21 @@ class Server {
         });
       } catch (error) {
         console.error('Error processing CSV:', error);
-        await FileProcessor.cleanup(req.file.path);
+        await FileProcessor.cleanup([req.file.path].filter(Boolean));
 
-        // Specific error handling
-        if (error.message.includes('Daily token or request limit')) {
-          res.status(429).send('Daily API limit would be exceeded');
-        } else {
-          res.status(500).send('Error processing the file');
+        // Handle specific errors
+        if (error.message.includes('Daily token or request limit'))
+        {
+          res.status(429).json({ error: 'Daily API limit would be exceeded' });
+        }
+        else if (error.response && error.response.status === 429)
+        {
+          // Handle OpenAI API rate limit errors
+          res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
+        }
+        else
+        {
+          res.status(500).json({ error: 'An error occurred during processing', details: error.message });
         }
       }
     });
