@@ -20,6 +20,7 @@
     "fast-csv": "^5.0.1",
     "fs-extra": "^11.2.0",
     "helmet": "^8.0.0",
+    "mongodb": "^6.11.0",
     "multer": "^1.4.5-lts.1",
     "openai": "^4.67.1",
     "p-limit": "^6.1.0",

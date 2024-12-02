@@ -12,7 +12,8 @@ import { FileProcessor } from './services/FileProcessor.js';
 import {encoding_for_model} from "tiktoken";
 import fs from "fs";
 import csv from "fast-csv";
-import {RateLimiter} from "./models/RateLimiter.js";
+import { RateLimiter } from "./models/RateLimiter.js";
+import {connectToDatabase, getMongoCollection} from "./db.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +35,7 @@ class Server {
   }
 
   setupRoutes() {
+    let outputPath;
     this.app.post('/upload-csv', this.upload.single('file'), async (req, res) => {
       try {
         const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
@@ -79,11 +81,6 @@ class Server {
         // Initialize rate limiter
         const rateLimiter = new RateLimiter(model);
 
-        // Check if daily limits would be exceeded
-        if (rateLimiter.isDailyLimitExceeded(totalTokens, numRows)) {
-          throw new Error('Daily token or request limit would be exceeded');
-        }
-
         // Process CSV and generate output
         const outputPath = await FileProcessor.processCSVForLabeling(
             req.file,
@@ -100,12 +97,11 @@ class Server {
           }
           await FileProcessor.cleanup([req.file.path, outputPath]);
         });
-      } catch (error) {
+      }
+      catch (error) {
         console.error('Error processing CSV:', error);
-        await FileProcessor.cleanup([req.file.path].filter(Boolean));
-
         // Handle specific errors
-        if (error.message.includes('Daily token or request limit'))
+        if (error.message.includes('Daily limit exceeded'))
         {
           res.status(429).json({ error: 'Daily API limit would be exceeded' });
         }
@@ -118,6 +114,7 @@ class Server {
         {
           res.status(500).json({ error: 'An error occurred during processing', details: error.message });
         }
+        await FileProcessor.cleanup([req.file.path, outputPath]);
       }
     });
 
@@ -129,10 +126,11 @@ class Server {
 
         await FileProcessor.cleanup(req.file.path);
         res.json({ totalTokens, totalCost });
-      } catch (error) {
+      }
+      catch (error) {
         console.error('Error calculating cost:', error);
-        await FileProcessor.cleanup(req.file.path);
         res.status(500).send('Error processing the file');
+        await FileProcessor.cleanup(req.file.path);
       }
     });
   }
@@ -143,6 +141,9 @@ class Server {
     });
   }
 }
+await connectToDatabase(CONFIG.MONGO_DB_URI);
+const collection = getMongoCollection('models_limits');
+await collection.createIndex({ model: 1 }, { unique: true });
 
 const server = new Server();
 server.start();
