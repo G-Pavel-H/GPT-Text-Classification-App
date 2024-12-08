@@ -52,6 +52,14 @@
                 <!-- Model Selection Section -->
                 <div id="model-selection">
                     <label class="model-label"><strong>Select Model</strong></label>
+                    <label class="radio-container">GPT-4
+                        <input type="radio" name="model" value="gpt-4" checked>
+                        <span class="checkmark"></span>
+                    </label>
+                    <label class="radio-container">GPT-4-Turbo
+                        <input type="radio" name="model" value="gpt-4-turbo">
+                        <span class="checkmark"></span>
+                    </label>
                     <label class="radio-container">GPT-4o
                         <input type="radio" name="model" value="gpt-4o" checked>
                         <span class="checkmark"></span>
@@ -60,14 +68,14 @@
                         <input type="radio" name="model" value="gpt-4o-mini">
                         <span class="checkmark"></span>
                     </label>
-                    <label class="radio-container">o1-preview
+                    <!-- <label class="radio-container">o1-preview
                         <input type="radio" name="model" value="o1-preview">
                         <span class="checkmark"></span>
                     </label>
                     <label class="radio-container">o1-mini
                         <input type="radio" name="model" value="o1-mini">
                         <span class="checkmark"></span>
-                    </label>
+                    </label> -->
                 </div>
                 <br>
                 <br>
@@ -80,12 +88,12 @@
                 <h3>Define Your Categories</h3>
                 <div id="labels-container" class="labels-container">
                     <div class="label">
-                        <input type="text" placeholder="Label Name" class="label-name" maxlength="5">
-                        <input type="text" placeholder="Label Definition" class="label-definition" maxlength="5">
+                        <input type="text" placeholder="Label Name" class="label-name" id="label-name">
+                        <input type="text" placeholder="Label Definition" class="label-definition" id="label-definition">
                     </div>
                     <div class="label">
-                        <input type="text" placeholder="Label Name" class="label-name" maxlength="5">
-                        <input type="text" placeholder="Label Definition" class="label-definition" maxlength="5">
+                        <input type="text" placeholder="Label Name" class="label-name" id="label-name">
+                        <input type="text" placeholder="Label Definition" class="label-definition" id="label-definition">
                     </div>
                 </div>
 
@@ -99,15 +107,15 @@
             </div>
         </div>
     </div>
-
-    <script type = "module" src="script.js"></script>
-
+  
+    <script type = "module" src="app.js"></script>
+  
     <!-- Custom Alert Modal -->
-<div id="custom-alert" class="custom-alert">
-    <div class="custom-alert-content">
-        <span class="custom-alert-close">&times;</span>
-        <p id="custom-alert-message"></p>
+    <div id="custom-alert" class="custom-alert">
+        <div class="custom-alert-content">
+            <span class="custom-alert-close">&times;</span>
+            <p id="custom-alert-message"></p>
+        </div>
     </div>
-</div>
 </body>
 </html>
