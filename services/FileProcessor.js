@@ -40,11 +40,6 @@ export class FileProcessor {
                 try {
                     const tokens = encoding.encode(row.Input).length;
 
-                    // Check if daily limits would be exceeded for this request
-                    if (rateLimiter.isDailyLimitExceeded(tokens, 1)) {
-                        throw new Error('Daily token or request limit would be exceeded during processing');
-                    }
-
                     // Wait for rate limiter
                     await rateLimiter.waitForRateLimit(tokens);
 
