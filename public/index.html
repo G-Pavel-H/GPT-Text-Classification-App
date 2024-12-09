@@ -83,6 +83,12 @@
                 <h3>Estimated API Request Cost</h3>
                 <div id="price-estimate">$0.00</div>
                 <br>
+                <div id="processing-status-model">Model: </div>
+                <br>
+                <div id="processing-status-requests">Current Requests In Process: </div>
+                <br>
+                <div id="processing-status-wait">Estimated Wait time: </div>
+                <br>
                 <br>
                 <!-- Labels Section -->
                 <h3>Define Your Categories</h3>
@@ -100,7 +106,7 @@
                 <!-- Buttons Section -->
                 <div class="button-container">
                     <button class="fancy-button" onclick="addLabel()">Add Label</button>
-                    <button class="fancy-button" onclick="uploadFile()">Process File</button>
+                    <button class="fancy-button" id="process-file-button" onclick="uploadFile()">Process File</button>
                 </div>
 
                 <div id="progress-message"></div>
