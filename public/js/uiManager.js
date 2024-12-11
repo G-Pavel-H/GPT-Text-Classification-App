@@ -32,7 +32,7 @@ export class UIManager {
             if (!startTimestamp) startTimestamp = timestamp;
             const progress = timestamp - startTimestamp;
             const current = Math.min(start + (end - start) * (progress / CONFIG.ANIMATION_DURATION), end);
-            element.textContent = '$' + current.toFixed(4);
+            element.textContent = '$' + current.toFixed(8);
             
             if (progress < CONFIG.ANIMATION_DURATION) {
                 window.requestAnimationFrame(step);
@@ -58,5 +58,45 @@ export class UIManager {
     resetFileInput() {
         this.updateFileButton('Choose File');
         this.resetPriceEstimate();
+    }
+
+    disableProcessButton() {
+        const processButton = document.getElementById('process-file-button');
+        if (processButton) {
+            processButton.disabled = true;
+            processButton.classList.add('disabled');
+        }
+    }
+
+    enableProcessButton() {
+        const processButton = document.getElementById('process-file-button');
+        if (processButton) {
+            processButton.disabled = false;
+            processButton.classList.remove('disabled');
+        }
+    }
+
+    // You might also want to add a method to track processing time
+    async updateProcessingStatus(model) {
+        try {
+            const response = await fetch(`/processing-requests?model=${model}`);
+            const data = await response.json();
+
+            const processingElementModel = document.getElementById('processing-status-model');
+            const processingElementRequests = document.getElementById('processing-status-requests');
+            const processingElementWait = document.getElementById('processing-status-wait');
+
+            if (processingElementModel) {
+                processingElementModel.textContent = `Model: ${model}`;
+            }
+            if (processingElementRequests) {
+                processingElementRequests.textContent = `Current Requests In Process:: ${data.processingRequests}`;
+            }
+            if (processingElementWait) {
+                processingElementWait.textContent = `Estimated Wait time: : ${data.estimatedTimeRemaining} seconds`;
+            }
+        } catch (error) {
+            console.error('Error fetching processing status:', error);
+        }
     }
 }

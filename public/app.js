@@ -12,7 +12,7 @@ class App {
         this.labelManager = new LabelManager('labels-container');
         this.uiManager = new UIManager();
         this.fileUploader = new FileUploader(this.uiManager);
-        
+        this.processingStatusInterval = null;
         this.initializeEventListeners();
     }
 
@@ -106,6 +106,7 @@ class App {
         this.fileHandler.reset();
         this.priceCalculator.reset();
         this.uiManager.resetFileInput();
+        this.stopProcessingStatusTracking();
     }
 
     async handlePriceCalculation(file) {
@@ -115,6 +116,8 @@ class App {
             
             const priceEstimateElement = document.getElementById('price-estimate');
             this.uiManager.animateValue(priceEstimateElement, 0, priceResult.totalCost);
+            // Start tracking processing status
+            this.startProcessingStatusTracking(model);
 
             if (!priceResult.isValid) {
                 this.handleFileError(priceResult.error);
@@ -124,24 +127,43 @@ class App {
         }
     }
 
+    startProcessingStatusTracking(model) {
+        // Clear any existing interval
+        this.stopProcessingStatusTracking();
+
+        // Start a new interval to check processing status every 5 seconds
+        this.processingStatusInterval = setInterval(() => {
+            this.uiManager.updateProcessingStatus(model);
+        }, 2000); // 5 seconds
+    }
+
+    stopProcessingStatusTracking() {
+        if (this.processingStatusInterval) {
+            clearInterval(this.processingStatusInterval);
+            this.processingStatusInterval = null;
+        }
+    }
+
     async handleUpload() {
         if (!this.fileHandler.isValid) {
             this.uiManager.showAlert('Please upload a valid CSV file.');
             return;
         }
-    
+
         if (!this.priceCalculator.isValid) {
             this.uiManager.showAlert(`File is too large, exceeded price limit of $${CONFIG.MAX_ALLOWED_PRICE}`);
             return;
         }
-    
+
         try {
             const labels = this.labelManager.validateLabels();
             const model = document.querySelector('input[name="model"]:checked').value;
+
             await this.fileUploader.uploadFile(this.fileHandler.selectedFile, labels, model);
         } catch (error) {
             this.uiManager.showAlert(error.message);
             this.uiManager.updateProgressMessage('', false);
+
             // Reset file input to allow re-upload
             const fileInput = document.getElementById('csvFileInput');
             fileInput.value = '';
@@ -166,7 +188,7 @@ window.addLabel = () => {
 window.uploadFile = () => app.handleUpload();
 window.onclick = function(event) {
     const modal = document.getElementById('contact-form-modal');
-    if (event.target == modal) {
+    if (event.target === modal) {
         modal.style.display = 'none';
     }
 }
