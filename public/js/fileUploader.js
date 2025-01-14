@@ -3,7 +3,7 @@ export class FileUploader {
         this.uiManager = uiManager;
     }
 
-    async uploadFile(file, labels, model,totalCost) {
+    async uploadFile(file, labels, model, totalCost) {
         this.uiManager.disableProcessButton();
         const formData = new FormData();
         formData.append('file', file);

@@ -117,7 +117,7 @@ class App {
             
             const priceEstimateElement = document.getElementById('price-estimate');
             this.uiManager.animateValue(priceEstimateElement, 0, priceResult.totalCost);
-            this.totalCostEstimate = priceEstimateElement.totalCost;
+            this.totalCostEstimate = priceResult.totalCost;
 
             // Start tracking processing status
             this.startProcessingStatusTracking(model);

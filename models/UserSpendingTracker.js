@@ -5,21 +5,45 @@ export class UserSpendingTracker {
     static DAILY_SPENDING_LIMIT = CONFIG.DAILY_SPENDING_LIMIT;
 
     static async recordUserSpending(ipAddress, amount) {
+        if (typeof amount !== 'number' || isNaN(amount)) {
+            console.error('Invalid amount provided:', amount);
+            return false;
+        }
+
         const collection = getMongoCollection('user_spending');
         const today = this.getTodayDateString();
 
         try {
-            // Find or create user spending record
-            const query = { ipAddress, date: today };
-            const update = {
-                $inc: { totalSpent: amount },
-                $setOnInsert: { date: today, ipAddress }
-            };
-            const options = { upsert: true, returnDocument: 'after' };
+            // First check if document exists
+            const existingDoc = await collection.findOne({ ipAddress, date: today });
 
-            const result = await collection.findOneAndUpdate(query, update, options);
+            if (!existingDoc) {
+                // If document doesn't exist, create it with initial amount
+                const result = await collection.findOneAndUpdate(
+                    { ipAddress, date: today },
+                    {
+                        $set: {
+                            ipAddress,
+                            date: today,
+                            createdAt: new Date(),
+                            totalSpent: amount
+                        }
+                    },
+                    {
+                        upsert: true,
+                        returnDocument: 'after'
+                    }
+                );
+                return result.totalSpent <= this.DAILY_SPENDING_LIMIT;
+            }
 
-            // Check if daily limit is exceeded
+            // If document exists, increment the amount
+            const result = await collection.findOneAndUpdate(
+                { ipAddress, date: today },
+                { $inc: { totalSpent: amount } },
+                { returnDocument: 'after' }
+            );
+
             return result.totalSpent <= this.DAILY_SPENDING_LIMIT;
         } catch (error) {
             console.error('Error recording user spending:', error);
@@ -28,15 +52,25 @@ export class UserSpendingTracker {
     }
 
     static async getUserDailySpending(ipAddress) {
+        if (!ipAddress) {
+            console.error('No IP address provided');
+            return 0;
+        }
+
         const collection = getMongoCollection('user_spending');
         const today = this.getTodayDateString();
 
-        const userSpending = await collection.findOne({
-            ipAddress,
-            date: today
-        });
+        try {
+            const userSpending = await collection.findOne({
+                ipAddress,
+                date: today
+            });
 
-        return userSpending ? userSpending.totalSpent : 0;
+            return userSpending?.totalSpent || 0;
+        } catch (error) {
+            console.error('Error getting user daily spending:', error);
+            return 0;
+        }
     }
 
     static getTodayDateString() {
@@ -50,13 +84,18 @@ export class UserSpendingTracker {
 
 export class SpendingLimitMiddleware {
     static async checkSpendingLimit(req, res, next) {
-        const ipAddress = req.ip; // Express provides this
+        const ipAddress = req.ip;
         const estimatedCost = parseFloat(req.body.estimatedCost || 0);
+
+        if (isNaN(estimatedCost)) {
+            return res.status(400).json({
+                error: 'Invalid cost estimate provided'
+            });
+        }
 
         try {
             const dailySpending = await UserSpendingTracker.getUserDailySpending(ipAddress);
             const newTotalSpending = dailySpending + estimatedCost;
-            console.warn(dailySpending);
 
             if (newTotalSpending > UserSpendingTracker.DAILY_SPENDING_LIMIT) {
                 return res.status(403).json({
@@ -66,7 +105,6 @@ export class SpendingLimitMiddleware {
                 });
             }
 
-            // Attach spending information to the request for later use
             req.userSpending = { ipAddress, estimatedCost };
             next();
         } catch (error) {
@@ -78,10 +116,14 @@ export class SpendingLimitMiddleware {
     static async recordSpending(req, res, next) {
         if (req.userSpending) {
             try {
-                await UserSpendingTracker.recordUserSpending(
+                const success = await UserSpendingTracker.recordUserSpending(
                     req.userSpending.ipAddress,
                     req.userSpending.estimatedCost
                 );
+
+                if (!success) {
+                    console.error('Failed to record spending');
+                }
             } catch (error) {
                 console.error('Error recording spending:', error);
             }

@@ -101,7 +101,7 @@ class Server {
           await FileProcessor.cleanup([req.file.path, outputPath], rateLimiter);
         });
 
-        req.userSpending = { ipAddress: req.ip, estimatedCost: req.totalCost };
+        req.userSpending = { ipAddress: req.ip, estimatedCost: parseFloat(req.body.totalCost)};
         await UserSpendingTracker.recordUserSpending(req.userSpending.ipAddress, req.userSpending.estimatedCost);
       }
       catch (error) {
