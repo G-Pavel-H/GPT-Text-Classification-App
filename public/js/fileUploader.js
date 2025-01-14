@@ -3,12 +3,13 @@ export class FileUploader {
         this.uiManager = uiManager;
     }
 
-    async uploadFile(file, labels, model) {
+    async uploadFile(file, labels, model,totalCost) {
         this.uiManager.disableProcessButton();
         const formData = new FormData();
         formData.append('file', file);
         formData.append('labels', JSON.stringify(labels));
         formData.append('model', model);
+        formData.append('totalCost', totalCost);
 
         this.uiManager.updateProgressMessage('Processing your file, please wait...');
 

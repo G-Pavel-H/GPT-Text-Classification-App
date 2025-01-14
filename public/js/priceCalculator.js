@@ -17,6 +17,12 @@ export class PriceCalculator {
             });
 
             if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                if (errorData.error && errorData.error.includes('Daily spending limit exceeded')) {
+                    throw new Error('Daily spending limit exceeded. You cannot process this file.');
+                } else {
+                    throw new Error('Error calculating token count.');
+                }
                 throw new Error('Error calculating token count.');
             }
 

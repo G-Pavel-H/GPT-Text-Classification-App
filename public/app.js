@@ -14,6 +14,7 @@ class App {
         this.fileUploader = new FileUploader(this.uiManager);
         this.processingStatusInterval = null;
         this.initializeEventListeners();
+        this.totalCostEstimate = 0;
     }
 
     initializeEventListeners() {
@@ -116,6 +117,8 @@ class App {
             
             const priceEstimateElement = document.getElementById('price-estimate');
             this.uiManager.animateValue(priceEstimateElement, 0, priceResult.totalCost);
+            this.totalCostEstimate = priceEstimateElement.totalCost;
+
             // Start tracking processing status
             this.startProcessingStatusTracking(model);
 
@@ -159,7 +162,7 @@ class App {
             const labels = this.labelManager.validateLabels();
             const model = document.querySelector('input[name="model"]:checked').value;
 
-            await this.fileUploader.uploadFile(this.fileHandler.selectedFile, labels, model);
+            await this.fileUploader.uploadFile(this.fileHandler.selectedFile, labels, model, this.totalCostEstimate);
         } catch (error) {
             this.uiManager.showAlert(error.message);
             this.uiManager.updateProgressMessage('', false);

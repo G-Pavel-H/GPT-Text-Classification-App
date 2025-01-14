@@ -14,6 +14,7 @@ import fs from "fs";
 import csv from "fast-csv";
 import { RateLimiter } from "./models/RateLimiter.js";
 import {connectToDatabase, getMongoCollection} from "./db.js";
+import {SpendingLimitMiddleware, UserSpendingTracker} from "./models/UserSpendingTracker.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,6 +26,7 @@ class Server {
     this.upload = multer({ dest: CONFIG.UPLOAD_DIR });
     this.setupMiddleware();
     this.setupRoutes();
+    this.app.set('trust proxy', true);
   }
 
   setupMiddleware() {
@@ -37,6 +39,7 @@ class Server {
   setupRoutes() {
     let outputPath;
     this.app.post('/upload-csv', this.upload.single('file'), async (req, res) => {
+      const rateLimiter = new RateLimiter(req.body.model || CONFIG.DEFAULT_MODEL);
       try {
         const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
         const model = req.body.model || CONFIG.DEFAULT_MODEL;
@@ -79,7 +82,7 @@ class Server {
         });
 
         // Initialize rate limiter
-        const rateLimiter = new RateLimiter(model);
+
 
         // Process CSV and generate output
         const outputPath = await FileProcessor.processCSVForLabeling(
@@ -95,8 +98,11 @@ class Server {
             console.error('Error during download:', err);
             res.status(500).send('Error generating the file');
           }
-          await FileProcessor.cleanup([req.file.path, outputPath]);
+          await FileProcessor.cleanup([req.file.path, outputPath], rateLimiter);
         });
+
+        req.userSpending = { ipAddress: req.ip, estimatedCost: req.totalCost };
+        await UserSpendingTracker.recordUserSpending(req.userSpending.ipAddress, req.userSpending.estimatedCost);
       }
       catch (error) {
         console.error('Error processing CSV:', error);
@@ -114,7 +120,7 @@ class Server {
         {
           res.status(500).json({ error: 'An error occurred during processing', details: error.message });
         }
-        await FileProcessor.cleanup([req.file.path, outputPath]);
+        await FileProcessor.cleanup([req.file.path, outputPath], rateLimiter);
       }
     });
 
@@ -124,13 +130,31 @@ class Server {
         const { totalTokens, numRows } = await FileProcessor.calculateTokens(req.file);
         const totalCost = CostCalculator.calculateCost(model, totalTokens, numRows);
 
+        // Now run the spending limit check with the actually computed cost.
+        // We'll simulate calling checkSpendingLimit inline or using the middleware manually:
+        const ipAddress = req.ip; // or from X-Forwarded-For if behind proxy
+        const dailySpending = await UserSpendingTracker.getUserDailySpending(ipAddress);
+        const newTotalSpending = dailySpending + totalCost;
+
+        if (newTotalSpending > UserSpendingTracker.DAILY_SPENDING_LIMIT) {
+          // User exceeded spending limit
+          await FileProcessor.cleanup(req.file.path);
+          return res.status(403).json({
+            error: 'Daily spending limit exceeded',
+            currentSpending: dailySpending,
+            limit: UserSpendingTracker.DAILY_SPENDING_LIMIT
+          });
+        }
+
+        // If we’re here, user is within the daily limit
         await FileProcessor.cleanup(req.file.path);
+
+        // Return normal response
         res.json({ totalTokens, totalCost });
-      }
-      catch (error) {
+      } catch (error) {
         console.error('Error calculating cost:', error);
-        res.status(500).send('Error processing the file');
         await FileProcessor.cleanup(req.file.path);
+        res.status(500).send('Error processing the file');
       }
     });
 
