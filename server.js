@@ -81,9 +81,6 @@ class Server {
               .on('error', reject);
         });
 
-        // Initialize rate limiter
-
-
         // Process CSV and generate output
         const outputPath = await FileProcessor.processCSVForLabeling(
             req.file,
@@ -134,7 +131,7 @@ class Server {
         // We'll simulate calling checkSpendingLimit inline or using the middleware manually:
         const ipAddress = req.ip; // or from X-Forwarded-For if behind proxy
         const dailySpending = await UserSpendingTracker.getUserDailySpending(ipAddress);
-        const newTotalSpending = dailySpending + totalCost;
+        const newTotalSpending = parseFloat(dailySpending) + parseFloat(totalCost);
 
         if (newTotalSpending > UserSpendingTracker.DAILY_SPENDING_LIMIT) {
           // User exceeded spending limit
@@ -185,6 +182,7 @@ class Server {
     });
   }
 }
+
 await connectToDatabase(CONFIG.MONGO_DB_URI);
 const collection = getMongoCollection('models_limits');
 await collection.createIndex({ model: 1 }, { unique: true });
@@ -207,16 +205,19 @@ process.on('SIGTERM', async () => {
 async function shutdownCleanup() {
   try {
     console.log('Performing cleanup tasks...');
+    await RateLimiter.resetAllProcessingRequests();
     // Cleanup logic for uploaded files (if any files are still being tracked)
     if (activeFiles && activeFiles.size > 0) {
       console.log(`Cleaning up ${activeFiles.size} active files...`);
       await Promise.all([...activeFiles].map((filePath) => fs.promises.unlink(filePath).catch(() => {})));
       console.log('Cleanup complete.');
-    } else {
+    }
+    else {
       console.log('No active files to clean up.');
     }
     console.log('Cleanup tasks completed. Shutting down...');
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Error during shutdown cleanup:', error);
   }
 }

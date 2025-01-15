@@ -237,6 +237,14 @@ export class RateLimiter {
         const modelUsage = await collection.findOne({ model: this.model });
         return modelUsage?.processingRequests || 0;
     }
+
+    static async resetAllProcessingRequests() {
+        const collection = getMongoCollection('models_limits');
+        await collection.updateMany(
+            {},
+            { $set: { processingRequests: 0 } }
+        );
+    }
 }
 
 export function getTodayDateString() {

@@ -11,17 +11,16 @@ export class FileHandler {
                 const text = e.target.result;
                 const rows = text.split('\n').filter(row => row.trim() !== '');
                 const header = rows[0].split(',');
-                const inputColumnIndex = header.findIndex(col => 
+                const inputColumnIndex = header.findIndex(col =>
                     col.trim().toLowerCase() === 'input'
                 );
-    
+
                 if (inputColumnIndex === -1) {
-                    this.isValid = false;
-                    this.selectedFile = null;
-                    reject(new Error('CSV file must contain a column named "Input".')); // Changed this line
+                    this.reset(); // Use reset method here
+                    reject(new Error('CSV file must contain a column named "Input".'));
                     return;
                 }
-                
+
                 this.isValid = true;
                 this.selectedFile = file;
                 resolve(true);

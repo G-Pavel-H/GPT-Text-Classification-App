@@ -101,6 +101,8 @@ class App {
     handleFileError(errorMessage) {
         this.resetState();
         this.uiManager.showAlert(errorMessage);
+        const fileInput = document.getElementById('csvFileInput');
+        fileInput.value = ''; // Clear the file input
     }
 
     resetState() {
@@ -108,6 +110,7 @@ class App {
         this.priceCalculator.reset();
         this.uiManager.resetFileInput();
         this.stopProcessingStatusTracking();
+        this.totalCostEstimate = 0; // Reset the cost estimate
     }
 
     async handlePriceCalculation(file) {
@@ -119,12 +122,14 @@ class App {
             this.uiManager.animateValue(priceEstimateElement, 0, priceResult.totalCost);
             this.totalCostEstimate = priceResult.totalCost;
 
+            if (!priceResult.isValid) {
+                this.handleFileError(priceResult.error);
+                return; // Add return statement to prevent starting processing status tracking
+            }
+
             // Start tracking processing status
             this.startProcessingStatusTracking(model);
 
-            if (!priceResult.isValid) {
-                this.handleFileError(priceResult.error);
-            }
         } catch (error) {
             this.handleFileError(error.message);
         }
