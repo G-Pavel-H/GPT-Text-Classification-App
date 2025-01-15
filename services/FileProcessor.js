@@ -70,7 +70,6 @@ export class FileProcessor {
 
             return outputPath;
         } finally {
-            await rateLimiter.decrementProcessingRequests();
             activeFiles.delete(file.path);
             activeFiles.delete(outputPath);
         }
@@ -114,7 +113,10 @@ export class FileProcessor {
         });
     }
 
-    static async cleanup(filePaths) {
+    static async cleanup(filePaths, rateLimiter) {
+        if(rateLimiter) {
+            await rateLimiter.decrementProcessingRequests();
+        }
         if (Array.isArray(filePaths)) {
             await Promise.all(filePaths.map(path => fsExtra.remove(path)));
         } else {

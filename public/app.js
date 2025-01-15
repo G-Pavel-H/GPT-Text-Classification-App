@@ -14,6 +14,7 @@ class App {
         this.fileUploader = new FileUploader(this.uiManager);
         this.processingStatusInterval = null;
         this.initializeEventListeners();
+        this.totalCostEstimate = 0;
     }
 
     initializeEventListeners() {
@@ -100,6 +101,8 @@ class App {
     handleFileError(errorMessage) {
         this.resetState();
         this.uiManager.showAlert(errorMessage);
+        const fileInput = document.getElementById('csvFileInput');
+        fileInput.value = ''; // Clear the file input
     }
 
     resetState() {
@@ -107,6 +110,7 @@ class App {
         this.priceCalculator.reset();
         this.uiManager.resetFileInput();
         this.stopProcessingStatusTracking();
+        this.totalCostEstimate = 0; // Reset the cost estimate
     }
 
     async handlePriceCalculation(file) {
@@ -116,12 +120,16 @@ class App {
             
             const priceEstimateElement = document.getElementById('price-estimate');
             this.uiManager.animateValue(priceEstimateElement, 0, priceResult.totalCost);
-            // Start tracking processing status
-            this.startProcessingStatusTracking(model);
+            this.totalCostEstimate = priceResult.totalCost;
 
             if (!priceResult.isValid) {
                 this.handleFileError(priceResult.error);
+                return; // Add return statement to prevent starting processing status tracking
             }
+
+            // Start tracking processing status
+            this.startProcessingStatusTracking(model);
+
         } catch (error) {
             this.handleFileError(error.message);
         }
@@ -159,7 +167,7 @@ class App {
             const labels = this.labelManager.validateLabels();
             const model = document.querySelector('input[name="model"]:checked').value;
 
-            await this.fileUploader.uploadFile(this.fileHandler.selectedFile, labels, model);
+            await this.fileUploader.uploadFile(this.fileHandler.selectedFile, labels, model, this.totalCostEstimate);
         } catch (error) {
             this.uiManager.showAlert(error.message);
             this.uiManager.updateProgressMessage('', false);
