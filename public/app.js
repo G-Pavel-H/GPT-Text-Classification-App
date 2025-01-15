@@ -135,6 +135,7 @@ class App {
         }
     }
 
+
     startProcessingStatusTracking(model) {
         // Clear any existing interval
         this.stopProcessingStatusTracking();
