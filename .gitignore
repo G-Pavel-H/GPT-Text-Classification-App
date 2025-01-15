@@ -2,3 +2,4 @@ public/.DS_Store
 .DS_Store
 .env
 testMongo.js
+.idea/workspace.xml
