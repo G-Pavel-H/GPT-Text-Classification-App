@@ -8,12 +8,13 @@ import helmet from 'helmet';
 import { CONFIG } from './config.js';
 import { OpenAIService } from './models/OpenAiService.js';
 import { CostCalculator } from './models/CostCalculator.js';
-import { FileProcessor } from './services/FileProcessor.js';
+import { FileProcessor, activeFiles } from './services/FileProcessor.js';
 import {encoding_for_model} from "tiktoken";
 import fs from "fs";
 import csv from "fast-csv";
 import { RateLimiter } from "./models/RateLimiter.js";
 import {connectToDatabase, getMongoCollection} from "./db.js";
+import {SpendingLimitMiddleware, UserSpendingTracker} from "./models/UserSpendingTracker.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,6 +26,7 @@ class Server {
     this.upload = multer({ dest: CONFIG.UPLOAD_DIR });
     this.setupMiddleware();
     this.setupRoutes();
+    this.app.set('trust proxy', true);
   }
 
   setupMiddleware() {
@@ -37,6 +39,7 @@ class Server {
   setupRoutes() {
     let outputPath;
     this.app.post('/upload-csv', this.upload.single('file'), async (req, res) => {
+      const rateLimiter = new RateLimiter(req.body.model || CONFIG.DEFAULT_MODEL);
       try {
         const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
         const model = req.body.model || CONFIG.DEFAULT_MODEL;
@@ -78,9 +81,6 @@ class Server {
               .on('error', reject);
         });
 
-        // Initialize rate limiter
-        const rateLimiter = new RateLimiter(model);
-
         // Process CSV and generate output
         const outputPath = await FileProcessor.processCSVForLabeling(
             req.file,
@@ -95,8 +95,11 @@ class Server {
             console.error('Error during download:', err);
             res.status(500).send('Error generating the file');
           }
-          await FileProcessor.cleanup([req.file.path, outputPath]);
+          await FileProcessor.cleanup([req.file.path, outputPath], rateLimiter);
         });
+
+        req.userSpending = { ipAddress: req.ip, estimatedCost: parseFloat(req.body.totalCost)};
+        await UserSpendingTracker.recordUserSpending(req.userSpending.ipAddress, req.userSpending.estimatedCost);
       }
       catch (error) {
         console.error('Error processing CSV:', error);
@@ -114,7 +117,7 @@ class Server {
         {
           res.status(500).json({ error: 'An error occurred during processing', details: error.message });
         }
-        await FileProcessor.cleanup([req.file.path, outputPath]);
+        await FileProcessor.cleanup([req.file.path, outputPath], rateLimiter);
       }
     });
 
@@ -124,13 +127,51 @@ class Server {
         const { totalTokens, numRows } = await FileProcessor.calculateTokens(req.file);
         const totalCost = CostCalculator.calculateCost(model, totalTokens, numRows);
 
+        // Now run the spending limit check with the actually computed cost.
+        // We'll simulate calling checkSpendingLimit inline or using the middleware manually:
+        const ipAddress = req.ip; // or from X-Forwarded-For if behind proxy
+        const dailySpending = await UserSpendingTracker.getUserDailySpending(ipAddress);
+        const newTotalSpending = parseFloat(dailySpending) + parseFloat(totalCost);
+
+        if (newTotalSpending > UserSpendingTracker.DAILY_SPENDING_LIMIT) {
+          // User exceeded spending limit
+          await FileProcessor.cleanup(req.file.path);
+          return res.status(403).json({
+            error: 'Daily spending limit exceeded',
+            currentSpending: dailySpending,
+            limit: UserSpendingTracker.DAILY_SPENDING_LIMIT
+          });
+        }
+
+        // If we’re here, user is within the daily limit
         await FileProcessor.cleanup(req.file.path);
+
+        // Return normal response
         res.json({ totalTokens, totalCost });
-      }
-      catch (error) {
+      } catch (error) {
         console.error('Error calculating cost:', error);
-        res.status(500).send('Error processing the file');
         await FileProcessor.cleanup(req.file.path);
+        res.status(500).send('Error processing the file');
+      }
+    });
+
+    this.app.get('/processing-requests', async (req, res) => {
+      try {
+        const model = req.query.model || CONFIG.DEFAULT_MODEL;
+        const rateLimiter = new RateLimiter(model);
+        const processingRequests = await rateLimiter.getProcessingRequestsCount();
+
+        // Estimate processing time (assume each request takes ~5 seconds)
+        const estimatedTimePerRequest = 5; // seconds
+        const estimatedTotalTime = processingRequests * estimatedTimePerRequest;
+
+        res.json({
+          processingRequests,
+          estimatedTimeRemaining: estimatedTotalTime
+        });
+      } catch (error) {
+        console.error('Error fetching processing requests:', error);
+        res.status(500).json({ error: 'Could not fetch processing requests' });
       }
     });
   }
@@ -141,9 +182,44 @@ class Server {
     });
   }
 }
+
 await connectToDatabase(CONFIG.MONGO_DB_URI);
 const collection = getMongoCollection('models_limits');
 await collection.createIndex({ model: 1 }, { unique: true });
 
 const server = new Server();
+
+// Signal handling for graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('Received SIGINT. Cleaning up...');
+  await shutdownCleanup();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('Received SIGTERM. Cleaning up...');
+  await shutdownCleanup();
+  process.exit(0);
+});
+
+async function shutdownCleanup() {
+  try {
+    console.log('Performing cleanup tasks...');
+    await RateLimiter.resetAllProcessingRequests();
+    // Cleanup logic for uploaded files (if any files are still being tracked)
+    if (activeFiles && activeFiles.size > 0) {
+      console.log(`Cleaning up ${activeFiles.size} active files...`);
+      await Promise.all([...activeFiles].map((filePath) => fs.promises.unlink(filePath).catch(() => {})));
+      console.log('Cleanup complete.');
+    }
+    else {
+      console.log('No active files to clean up.');
+    }
+    console.log('Cleanup tasks completed. Shutting down...');
+  }
+  catch (error) {
+    console.error('Error during shutdown cleanup:', error);
+  }
+}
+
 server.start();

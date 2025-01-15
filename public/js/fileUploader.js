@@ -1,14 +1,15 @@
-// File Uploader Class
 export class FileUploader {
     constructor(uiManager) {
         this.uiManager = uiManager;
     }
 
-    async uploadFile(file, labels, model) {
+    async uploadFile(file, labels, model, totalCost) {
+        this.uiManager.disableProcessButton();
         const formData = new FormData();
         formData.append('file', file);
         formData.append('labels', JSON.stringify(labels));
         formData.append('model', model);
+        formData.append('totalCost', totalCost);
 
         this.uiManager.updateProgressMessage('Processing your file, please wait...');
 
@@ -42,9 +43,11 @@ export class FileUploader {
             this.uiManager.updateProgressMessage('', false);
         } catch (error) {
             this.uiManager.updateProgressMessage('', false);
-            // Optionally, you can log the error or handle it differently
             console.error('Upload error:', error);
             throw error;
+        } finally {
+            // Re-enable the process file button after completion or error
+            this.uiManager.enableProcessButton();
         }
     }
 
