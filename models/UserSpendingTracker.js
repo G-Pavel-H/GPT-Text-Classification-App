@@ -14,18 +14,15 @@ export class UserSpendingTracker {
         const today = this.getTodayDateString();
 
         try {
-            // First check if document exists
-            const existingDoc = await collection.findOne({ ipAddress, date: today });
+            const existingDoc = await collection.findOne({ ipAddress });
 
             if (!existingDoc) {
-                // If document doesn't exist, create it with initial amount
                 const result = await collection.findOneAndUpdate(
-                    { ipAddress, date: today },
+                    { ipAddress },
                     {
                         $set: {
                             ipAddress,
                             date: today,
-                            createdAt: new Date(),
                             totalSpent: amount
                         }
                     },
@@ -37,12 +34,26 @@ export class UserSpendingTracker {
                 return result.totalSpent <= this.DAILY_SPENDING_LIMIT;
             }
 
-            // If document exists, increment the amount
+            if (existingDoc.date !== today) {
+                const result = await collection.findOneAndUpdate(
+                    { ipAddress },
+                    {
+                        $set: {
+                            date: today,
+                            totalSpent: amount,
+                        }
+                    },
+                    { returnDocument: 'after' }
+                );
+                return result.totalSpent <= this.DAILY_SPENDING_LIMIT;
+            }
+
             const result = await collection.findOneAndUpdate(
                 { ipAddress, date: today },
                 { $inc: { totalSpent: amount } },
                 { returnDocument: 'after' }
             );
+
 
             return result.totalSpent <= this.DAILY_SPENDING_LIMIT;
         } catch (error) {
