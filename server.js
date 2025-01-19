@@ -147,7 +147,7 @@ class Server {
         await FileProcessor.cleanup(req.file.path);
 
         // Return normal response
-        res.json({ totalTokens, totalCost });
+        res.json({ totalTokens, totalCost, numRows });
       } catch (error) {
         console.error('Error calculating cost:', error);
         await FileProcessor.cleanup(req.file.path);

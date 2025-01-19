@@ -32,7 +32,9 @@ export class PriceCalculator {
             return {
                 totalCost: data.totalCost,
                 isValid: this.isValid,
-                error: this.isValid ? null : `File is too large, exceeded price limit of $${CONFIG.MAX_ALLOWED_PRICE}`
+                error: this.isValid ? null : `File is too large, exceeded price limit of $${CONFIG.MAX_ALLOWED_PRICE}`,
+                totalTokens: data.totalTokens,
+                totalRequests: data.numRows
             };
         } catch (error) {
             throw new Error('An error occurred while calculating token count:' + error);
