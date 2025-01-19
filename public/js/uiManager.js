@@ -5,6 +5,8 @@ export class UIManager {
         this.progressMessage = document.getElementById('progress-message');
         this.fileButton = document.getElementById('custom-file-upload');
         this.priceEstimateElement = document.getElementById('price-estimate');
+        this.totalTokensElement = document.getElementById('total-tokens-estimate');
+        this.totalRequestsElement = document.getElementById('total-requests-estimate');
     }
 
     showAlert(message) {
@@ -25,14 +27,19 @@ export class UIManager {
         };
     }
 
-    animateValue(element, start, end) {
+    animateValue(element, start, end, text=null) {
         let startTimestamp = null;
         
         const step = (timestamp) => {
             if (!startTimestamp) startTimestamp = timestamp;
             const progress = timestamp - startTimestamp;
             const current = Math.min(start + (end - start) * (progress / CONFIG.ANIMATION_DURATION), end);
-            element.textContent = '$' + current.toFixed(8);
+            if(text === null){
+                element.textContent = '$' + current.toFixed(8);
+            }
+            else{
+                element.textContent = text + current.toFixed(0);
+            }
             
             if (progress < CONFIG.ANIMATION_DURATION) {
                 window.requestAnimationFrame(step);
@@ -49,6 +56,8 @@ export class UIManager {
 
     resetPriceEstimate() {
         this.priceEstimateElement.textContent = '$0.00';
+        this.totalTokensElement.textContent = `Number of tokens for Your file: 0`;
+        this.totalRequestsElement.textContent = `Number of requests for Your file: 0`;
     }
 
     updateFileButton(fileName) {
