@@ -8,5 +8,5 @@ export const CONFIG = {
     UPLOAD_DIR: 'uploads/',
     DEFAULT_MODEL: 'gpt-4o-mini',
     concurrency_level_api: 5,
-    DAILY_SPENDING_LIMIT : 0.0004,
+    DAILY_SPENDING_LIMIT : 0.5,
 };
