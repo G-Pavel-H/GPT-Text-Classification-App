@@ -124,7 +124,7 @@ class Server {
     this.app.post('/calculate-cost', this.upload.single('file'), async (req, res) => {
       try {
         const model = req.body.model || CONFIG.DEFAULT_MODEL;
-        const { totalTokens, numRows } = await FileProcessor.calculateTokens(req.file);
+        const { totalTokens, numRows } = await FileProcessor.calculateTokens(req.file, model);
         const totalCost = CostCalculator.calculateCost(model, totalTokens, numRows);
 
         // Now run the spending limit check with the actually computed cost.
