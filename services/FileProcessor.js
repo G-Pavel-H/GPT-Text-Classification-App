@@ -8,9 +8,8 @@ export const activeFiles = new Set();
 
 export class FileProcessor {
     static async processCSVForLabeling(file, labels, model, openAIService, rateLimiter) {
-        // Add the file to the active list
-        activeFiles.add(file.path);
 
+        activeFiles.add(file.path);
         const outputPath = `output-${file.filename}.csv`;
         activeFiles.add(outputPath);
 
@@ -23,7 +22,6 @@ export class FileProcessor {
             const encoding = await encoding_for_model(model);
             const rows = [];
 
-            // Read all rows into an array
             await new Promise((resolve, reject) => {
                 fs.createReadStream(file.path)
                     .pipe(csv.parse({ headers: true }))
@@ -39,10 +37,13 @@ export class FileProcessor {
                     .on('end', resolve);
             });
 
+            // Create array to store results in order
+            const results = new Array(rows.length).fill(null);
+
             // Implement controlled concurrency
             const concurrencyLevel = CONFIG.concurrency_level_api;
             const limit = pLimit(concurrencyLevel);
-            const promises = rows.map((row) =>
+            const promises = rows.map((row, index) =>
                 limit(async () => {
                     try {
                         const tokens = encoding.encode(row.Input).length;
@@ -53,8 +54,8 @@ export class FileProcessor {
                         // Make the API call
                         const label = await openAIService.getLabel(row.Input, labels, model);
 
-                        // Write to CSV
-                        csvStream.write({ Input: row.Input, Output: label });
+                        // Store result with original index
+                        results[index] = { Input: row.Input, Output: label };
                     } catch (error) {
                         console.error(`Error processing row: ${row.Input}`, error);
                         throw error;
@@ -65,18 +66,31 @@ export class FileProcessor {
             // Wait for all promises to complete
             await Promise.all(promises);
 
-            csvStream.end();
+            await new Promise((resolve, reject) => {
+
+                for (const result of results) {
+                    if (result) {
+                        csvStream.write({Input: result.Input, Output: result.Output});
+                    }
+                }
+
+                csvStream.end();
+                writeStream.on('finish', resolve);
+                writeStream.on('error', reject);
+
+            });
             encoding.free();
 
             return outputPath;
+
         } finally {
             activeFiles.delete(file.path);
             activeFiles.delete(outputPath);
         }
     }
 
-    static async calculateTokens(file) {
-        const encoding = await encoding_for_model('gpt-4');
+    static async calculateTokens(file, model) {
+        const encoding = await encoding_for_model(model);
         let totalTokens = 0;
         let numRows = 0;
 

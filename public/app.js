@@ -119,8 +119,15 @@ class App {
             const priceResult = await this.priceCalculator.calculatePrice(file, model);
             
             const priceEstimateElement = document.getElementById('price-estimate');
+            const totalTokensElement = document.getElementById('total-tokens-estimate');
+            const totalRequestsElement = document.getElementById('total-requests-estimate');
+
             this.uiManager.animateValue(priceEstimateElement, 0, priceResult.totalCost);
+            this.uiManager.animateValue(totalTokensElement, 0, priceResult.totalTokens, "Number of tokens for Your file: ");
+            this.uiManager.animateValue(totalRequestsElement, 0, priceResult.totalRequests, "Number of requests for Your file: ");
+
             this.totalCostEstimate = priceResult.totalCost;
+
 
             if (!priceResult.isValid) {
                 this.handleFileError(priceResult.error);
