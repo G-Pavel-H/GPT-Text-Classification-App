@@ -13,7 +13,7 @@ import {encoding_for_model} from "tiktoken";
 import fs from "fs";
 import csv from "fast-csv";
 import { RateLimiter } from "./models/RateLimiter.js";
-import {connectToDatabase, getMongoCollection} from "./db.js";
+import {closeConnection, connectToDatabase, getMongoCollection} from "./db.js";
 import {SpendingLimitMiddleware, UserSpendingTracker} from "./models/UserSpendingTracker.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -206,6 +206,9 @@ async function shutdownCleanup() {
   try {
     console.log('Performing cleanup tasks...');
     await RateLimiter.resetAllProcessingRequests();
+
+    await closeConnection();
+
     // Cleanup logic for uploaded files (if any files are still being tracked)
     if (activeFiles && activeFiles.size > 0) {
       console.log(`Cleaning up ${activeFiles.size} active files...`);
