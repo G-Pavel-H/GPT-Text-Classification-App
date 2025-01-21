@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export const CONFIG = {
-    PORT: 5555,
+    PORT: process.env.PORT,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     MONGO_DB_URI: process.env.MONGODB_ATLAS_URI,
     UPLOAD_DIR: 'uploads/',
