@@ -122,17 +122,16 @@ class App {
             const totalTokensElement = document.getElementById('total-tokens-estimate');
             const totalRequestsElement = document.getElementById('total-requests-estimate');
 
+            if (!priceResult.isValid) {
+                this.handleFileError(priceResult.error);
+                return;
+            }
+
             this.uiManager.animateValue(priceEstimateElement, 0, priceResult.totalCost);
             this.uiManager.animateValue(totalTokensElement, 0, priceResult.totalTokens, "Number of tokens for Your file: ");
             this.uiManager.animateValue(totalRequestsElement, 0, priceResult.totalRequests, "Number of requests for Your file: ");
 
             this.totalCostEstimate = priceResult.totalCost;
-
-
-            if (!priceResult.isValid) {
-                this.handleFileError(priceResult.error);
-                return; // Add return statement to prevent starting processing status tracking
-            }
 
             // Start tracking processing status
             this.startProcessingStatusTracking(model);
