@@ -1,30 +1,30 @@
 import { CONFIG } from '../config.js';
-import { getMongoCollection } from '../db.js'; // Function to get the MongoDB collection
+import { getMongoCollection } from '../db.js';
 
 export class RateLimiter {
     static RATE_LIMITS = {
         'gpt-4o': {
-            tokensPerMinute: 30000,
-            requestsPerMinute: 500,
-            tokensPerDay: 90000,
-            requestsPerDay: Infinity // Not specified in the original table
+            tokensPerMinute: 450000,
+            requestsPerMinute: 5000,
+            tokensPerDay: Infinity,
+            requestsPerDay: Infinity
         },
         'gpt-4o-mini': {
-            tokensPerMinute: 200000,
-            requestsPerMinute: 500,
-            tokensPerDay: 2000000,
-            requestsPerDay: 10000
+            tokensPerMinute: 2000000,
+            requestsPerMinute: 5000,
+            tokensPerDay: Infinity,
+            requestsPerDay: Infinity
         },
         'gpt-4': {
-            tokensPerMinute: 10000,
-            requestsPerMinute: 500,
-            tokensPerDay: 100000,
-            requestsPerDay: 10000
+            tokensPerMinute: 40000,
+            requestsPerMinute: 5000,
+            tokensPerDay: Infinity,
+            requestsPerDay: Infinity
         },
         'gpt-4-turbo': {
-            tokensPerMinute: 30000,
+            tokensPerMinute: 450000,
             requestsPerMinute: 500,
-            tokensPerDay: 90000,
+            tokensPerDay: Infinity,
             requestsPerDay: Infinity
         }
     };

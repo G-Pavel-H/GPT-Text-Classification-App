@@ -27,12 +27,21 @@ export class PriceCalculator {
             }
 
             const data = await response.json();
-            this.isValid = data.totalCost <= CONFIG.MAX_ALLOWED_PRICE;
-            
+
+            // TODO: Remember to change this gpt-4-turbo limit if the limits change
+            // TODO: make the max allowed rows be dependant on the model input, i.e. create an object containing those
+            if(model === "gpt-4-turbo"){
+                this.isValid = data.totalCost <= CONFIG.MAX_ALLOWED_PRICE && data.numRows <= 250;
+            }
+            else{
+                this.isValid = data.totalCost <= CONFIG.MAX_ALLOWED_PRICE && data.numRows <= CONFIG.MAX_ALLOWED_ROWS;
+            }
+
+
             return {
                 totalCost: data.totalCost,
                 isValid: this.isValid,
-                error: this.isValid ? null : `File is too large, exceeded price limit of $${CONFIG.MAX_ALLOWED_PRICE}`,
+                error: this.isValid ? null : `File is too large, exceeded price limit of $${CONFIG.MAX_ALLOWED_PRICE} or row limit of ${CONFIG.MAX_ALLOWED_ROWS} (250 for gpt-4-turbo).`,
                 totalTokens: data.totalTokens,
                 totalRequests: data.numRows
             };
