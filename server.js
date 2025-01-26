@@ -87,7 +87,8 @@ class Server {
             labels,
             model,
             this.openAIService,
-            rateLimiter // Pass the rateLimiter instance
+            rateLimiter,
+            numRows// Pass the rateLimiter instance
         );
 
         res.download(outputPath, async (err) => {
@@ -159,11 +160,10 @@ class Server {
       try {
         const model = req.query.model || CONFIG.DEFAULT_MODEL;
         const rateLimiter = new RateLimiter(model);
-        const processingRequests = await rateLimiter.getProcessingRequestsCount();
+        const { processingRequests, liveNumRowCount} = await rateLimiter.getProcessingRequestsCount();
 
-        // Estimate processing time (assume each request takes ~5 seconds)
-        const estimatedTimePerRequest = 5; // seconds
-        const estimatedTotalTime = processingRequests * estimatedTimePerRequest;
+        // Multiplying by 1/5 to estimate server response and processing times
+        const estimatedTotalTime = ( liveNumRowCount / rateLimiter.limits.requestsPerMinute) * 1.5;
 
         res.json({
           processingRequests,

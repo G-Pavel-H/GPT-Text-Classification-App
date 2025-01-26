@@ -99,10 +99,10 @@ export class UIManager {
                 processingElementModel.textContent = `Model: ${model}`;
             }
             if (processingElementRequests) {
-                processingElementRequests.textContent = `Current Requests In Process:: ${data.processingRequests}`;
+                processingElementRequests.textContent = `Current Requests In Process: ${data.processingRequests}`;
             }
             if (processingElementWait) {
-                processingElementWait.textContent = `Estimated Wait time: : ${data.estimatedTimeRemaining} seconds`;
+                processingElementWait.textContent = `Estimated Wait time: ${data.estimatedTimeRemaining} seconds`;
             }
         } catch (error) {
             console.error('Error fetching processing status:', error);
