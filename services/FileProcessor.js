@@ -7,14 +7,14 @@ import {CONFIG} from "../config.js";
 export const activeFiles = new Set();
 
 export class FileProcessor {
-    static async processCSVForLabeling(file, labels, model, openAIService, rateLimiter, numRows) {
+    static async processCSVForLabeling(file, labels, model, openAIService, rateLimiter) {
 
         activeFiles.add(file.path);
         const outputPath = `output-${file.filename}.csv`;
         activeFiles.add(outputPath);
 
         try {
-            await rateLimiter.incrementProcessingRequests(numRows);
+            await rateLimiter.incrementProcessingRequests();
             const writeStream = fs.createWriteStream(outputPath);
             const csvStream = csv.format({ headers: ['Input', 'Output'] });
             csvStream.pipe(writeStream);
@@ -80,7 +80,7 @@ export class FileProcessor {
 
             });
             encoding.free();
-            await rateLimiter.decrementLiveNumRowCount(numRows);
+
             return outputPath;
 
         } finally {

@@ -83,7 +83,6 @@ export class RateLimiter {
                     tokenCount: 0,
                     lastResetDate: today,
                     processingRequests: 0,
-                    liveNumRowCount: 0,
                 });
                 modelUsage = { requestCount: 0, tokenCount: 0, lastResetDate: today };
             } catch (error) {
@@ -145,8 +144,7 @@ export class RateLimiter {
                     requestCount: 1,
                     tokenCount: tokensUsed,
                     lastResetDate: today,
-                    processingRequests: 0,
-                    liveNumRowCount: 0,
+                    processingRequests: 0
                 });
                 return;
             } catch (error) {
@@ -214,16 +212,15 @@ export class RateLimiter {
         return Math.max(timeUntilRequestLimitResets, timeUntilTokenLimitResets, 0);
     }
   
-    async incrementProcessingRequests(numRows) {
+    async incrementProcessingRequests() {
         const collection = getMongoCollection('models_limits');
 
         await collection.updateOne(
             { model: this.model },
-            { $inc: { processingRequests: 1, liveNumRowCount: numRows } },
+            { $inc: { processingRequests: 1 } },
             { upsert: true }
         );
     }
-
 
     async decrementProcessingRequests() {
         const collection = getMongoCollection('models_limits');
@@ -234,24 +231,11 @@ export class RateLimiter {
         );
     }
 
-    async decrementLiveNumRowCount(numRows) {
-        const collection = getMongoCollection('models_limits');
-
-        await collection.updateOne(
-            { model: this.model },
-            { $inc: { liveNumRowCount: -numRows } },
-            { upsert: true }
-        );
-    }
-
     async getProcessingRequestsCount() {
         const collection = getMongoCollection('models_limits');
-        const modelUsage = await collection.findOne({ model: this.model });
 
-        return {
-            processingRequests: modelUsage?.processingRequests || 0,
-            liveNumRowCount: modelUsage?.liveNumRowCount || 0
-        };
+        const modelUsage = await collection.findOne({ model: this.model });
+        return modelUsage?.processingRequests || 0;
     }
 
     static async resetAllProcessingRequests() {
