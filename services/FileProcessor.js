@@ -4,10 +4,11 @@ import fsExtra from 'fs-extra';
 import {encoding_for_model} from "tiktoken";
 import pLimit from 'p-limit';
 import {CONFIG} from "../config.js";
+import {UserSpendingTracker} from "../models/UserSpendingTracker.js";
 export const activeFiles = new Set();
 
 export class FileProcessor {
-    static async processCSVForLabeling(file, labels, model, openAIService, rateLimiter) {
+    static async processCSVForLabeling(file, labels, model, openAIService, rateLimiter, ipAddress, numRows) {
 
         activeFiles.add(file.path);
         const outputPath = `output-${file.filename}.csv`;
@@ -15,6 +16,8 @@ export class FileProcessor {
 
         try {
             await rateLimiter.incrementProcessingRequests();
+            await UserSpendingTracker.initializeProcessing(ipAddress, numRows);
+
             const writeStream = fs.createWriteStream(outputPath);
             const csvStream = csv.format({ headers: ['Input', 'Output'] });
             csvStream.pipe(writeStream);
@@ -39,7 +42,10 @@ export class FileProcessor {
 
             // Create array to store results in order
             const results = new Array(rows.length).fill(null);
+            let processedCount = 0;
+            const batchSize = 10;
 
+            console.time("Labeling");
             // Implement controlled concurrency
             const concurrencyLevel = CONFIG.concurrency_level_api;
             const limit = pLimit(concurrencyLevel);
@@ -47,25 +53,26 @@ export class FileProcessor {
                 limit(async () => {
                     try {
                         const tokens = encoding.encode(row.Input).length;
-
-                        // Wait for rate limiter
                         await rateLimiter.waitForRateLimit(tokens);
-
-                        // Make the API call
                         const label = await openAIService.getLabel(row.Input, labels, model);
-
-                        // Store result with original index
                         results[index] = { Input: row.Input, Output: label };
+
+                        processedCount++;
+                        if (processedCount % batchSize === 0 || processedCount === rows.length) {
+                            await UserSpendingTracker.updateProcessingProgress(ipAddress, processedCount, numRows);
+                        }
+
                     } catch (error) {
                         console.error(`Error processing row: ${row.Input}`, error);
                         throw error;
                     }
                 })
             );
-
+            console.timeEnd("Labeling");
             // Wait for all promises to complete
             await Promise.all(promises);
 
+            console.time("writeCSV");
             await new Promise((resolve, reject) => {
 
                 for (const result of results) {
@@ -81,6 +88,8 @@ export class FileProcessor {
             });
             encoding.free();
 
+            await UserSpendingTracker.finalizeProcessing(ipAddress);
+            console.timeEnd("writeCSV");
             return outputPath;
 
         } finally {
@@ -128,13 +137,17 @@ export class FileProcessor {
     }
 
     static async cleanup(filePaths, rateLimiter) {
-        if(rateLimiter) {
+        if (rateLimiter) {
             await rateLimiter.decrementProcessingRequests();
         }
         if (Array.isArray(filePaths)) {
-            await Promise.all(filePaths.map(path => fsExtra.remove(path)));
-        } else {
-            await fsExtra.remove(filePaths);
+            await Promise.all(filePaths.map(path => {
+                if (path) { // Ensure path is defined
+                    return fsExtra.remove(path).catch(() => {}); // Ignore errors if file doesn't exist
+                }
+            }));
+        } else if (filePaths) { // Ensure filePaths is defined
+            await fsExtra.remove(filePaths).catch(() => {}); // Ignore errors if file doesn't exist
         }
     }
 }

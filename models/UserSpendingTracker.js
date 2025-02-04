@@ -91,54 +91,97 @@ export class UserSpendingTracker {
         const day = String(now.getUTCDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
-}
 
-export class SpendingLimitMiddleware {
-    static async checkSpendingLimit(req, res, next) {
-        const ipAddress = req.ip;
-        const estimatedCost = parseFloat(req.body.estimatedCost || 0);
-
-        if (isNaN(estimatedCost)) {
-            return res.status(400).json({
-                error: 'Invalid cost estimate provided'
-            });
-        }
+    static async updateProcessingProgress(ipAddress, processedRows, totalRows) {
+        const collection = getMongoCollection('user_spending');
+        const today = this.getTodayDateString();
 
         try {
-            const dailySpending = await UserSpendingTracker.getUserDailySpending(ipAddress);
-            const newTotalSpending = dailySpending + estimatedCost;
-
-            if (newTotalSpending > UserSpendingTracker.DAILY_SPENDING_LIMIT) {
-                return res.status(403).json({
-                    error: 'Daily spending limit exceeded',
-                    currentSpending: dailySpending,
-                    limit: UserSpendingTracker.DAILY_SPENDING_LIMIT
-                });
-            }
-
-            req.userSpending = { ipAddress, estimatedCost };
-            next();
+            await collection.updateOne(
+                { ipAddress },
+                {
+                    $set: {
+                        processedRows,
+                        totalRows,
+                        lastUpdateTime: new Date(),
+                        processingActive: true
+                    }
+                }
+            );
+            return true;
         } catch (error) {
-            console.error('Spending limit check error:', error);
-            res.status(500).json({ error: 'Internal server error checking spending limit' });
+            console.error('Error updating processing progress:', error);
+            return false;
         }
     }
 
-    static async recordSpending(req, res, next) {
-        if (req.userSpending) {
-            try {
-                const success = await UserSpendingTracker.recordUserSpending(
-                    req.userSpending.ipAddress,
-                    req.userSpending.estimatedCost
-                );
+    static async getProcessingProgress(ipAddress) {
+        const collection = getMongoCollection('user_spending');
+        const today = this.getTodayDateString();
 
-                if (!success) {
-                    console.error('Failed to record spending');
-                }
-            } catch (error) {
-                console.error('Error recording spending:', error);
-            }
+        try {
+            const userDoc = await collection.findOne({
+                ipAddress,
+            });
+
+            return {
+                processedRows: userDoc?.processedRows || 0,
+                totalRows: userDoc?.totalRows || 0,
+                lastUpdateTime: userDoc?.lastUpdateTime,
+                processingActive: userDoc?.processingActive || false
+            };
+        } catch (error) {
+            console.error('Error getting processing progress:', error);
+            return {
+                processedRows: 0,
+                totalRows: 0,
+                processingActive: false
+            };
         }
-        next();
+    }
+
+    static async initializeProcessing(ipAddress, totalRows) {
+        const collection = getMongoCollection('user_spending');
+        const today = this.getTodayDateString();
+
+        try {
+            await collection.updateOne(
+                { ipAddress },
+                {
+                    $set: {
+                        processedRows: 0,
+                        totalRows,
+                        lastUpdateTime: new Date(),
+                        processingActive: true
+                    }
+                },
+                { upsert: true }
+            );
+            return true;
+        } catch (error) {
+            console.error('Error initializing processing:', error);
+            return false;
+        }
+    }
+
+    static async finalizeProcessing(ipAddress) {
+        const collection = getMongoCollection('user_spending');
+        const today = this.getTodayDateString();
+
+        try {
+            await collection.updateOne(
+                { ipAddress },
+                {
+                    $set: {
+                        lastUpdateTime: new Date(),
+                        processingActive: false
+                    }
+                }
+            );
+            return true;
+        } catch (error) {
+            console.error('Error finalizing processing:', error);
+            return false;
+        }
     }
 }

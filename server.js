@@ -14,7 +14,7 @@ import fs from "fs";
 import csv from "fast-csv";
 import { RateLimiter } from "./models/RateLimiter.js";
 import {closeConnection, connectToDatabase, getMongoCollection} from "./db.js";
-import {SpendingLimitMiddleware, UserSpendingTracker} from "./models/UserSpendingTracker.js";
+import {UserSpendingTracker} from "./models/UserSpendingTracker.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,7 +87,9 @@ class Server {
             labels,
             model,
             this.openAIService,
-            rateLimiter // Pass the rateLimiter instance
+            rateLimiter,
+            req.ip,
+            numRows
         );
 
         res.download(outputPath, async (err) => {
@@ -172,6 +174,38 @@ class Server {
       } catch (error) {
         console.error('Error fetching processing requests:', error);
         res.status(500).json({ error: 'Could not fetch processing requests' });
+      }
+    });
+
+    this.app.get('/processing-progress', async (req, res) => {
+      try {
+        const ipAddress = req.ip;
+        const progress = await UserSpendingTracker.getProcessingProgress(ipAddress);
+
+        // Calculate percentage and estimated time remaining
+        const percentComplete = progress.totalRows > 0
+            ? (progress.processedRows / progress.totalRows) * 100
+            : 0;
+
+        // Calculate processing rate and estimated time remaining
+        let estimatedTimeRemaining = null;
+        if (progress.lastUpdateTime && progress.processedRows > 0 && progress.processingActive) {
+          const elapsedTime = new Date() - new Date(progress.lastUpdateTime);
+          const rowsRemaining = progress.totalRows - progress.processedRows;
+          const processingRate = progress.processedRows / elapsedTime;
+          estimatedTimeRemaining = Math.ceil(rowsRemaining / processingRate / 1000); // in seconds
+        }
+
+        res.json({
+          processedRows: progress.processedRows,
+          totalRows: progress.totalRows,
+          percentComplete: Math.round(percentComplete),
+          estimatedTimeRemaining,
+          processingActive: progress.processingActive
+        });
+      } catch (error) {
+        console.error('Error fetching processing progress:', error);
+        res.status(500).json({ error: 'Could not fetch processing progress' });
       }
     });
   }

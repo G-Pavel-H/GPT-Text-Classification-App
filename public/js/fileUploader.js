@@ -12,6 +12,7 @@ export class FileUploader {
         formData.append('totalCost', totalCost);
 
         this.uiManager.updateProgressMessage('Processing your file, please wait...');
+        this.uiManager.startProgressTracking(model);
 
         try {
             const response = await fetch('/upload-csv', {
@@ -41,8 +42,11 @@ export class FileUploader {
             this.downloadFile(blob);
 
             this.uiManager.updateProgressMessage('', false);
+            await this.uiManager.stopProgressTracking();
+
         } catch (error) {
             this.uiManager.updateProgressMessage('', false);
+            await this.uiManager.stopProgressTracking();
             console.error('Upload error:', error);
             throw error;
         } finally {

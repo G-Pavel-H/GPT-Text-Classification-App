@@ -195,7 +195,6 @@ export class RateLimiter {
         );
     }
 
-
     totalTokensInWindow() {
         return this.tokenTimestamps.reduce((sum, entry) => sum + entry.tokens, 0);
     }

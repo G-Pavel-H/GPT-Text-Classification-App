@@ -7,6 +7,10 @@ export class UIManager {
         this.priceEstimateElement = document.getElementById('price-estimate');
         this.totalTokensElement = document.getElementById('total-tokens-estimate');
         this.totalRequestsElement = document.getElementById('total-requests-estimate');
+        this.progressInterval = null;
+        this.progressContainer = document.getElementById('progress-container');
+        this.loadingBar = document.getElementById('loading-bar');
+        this.percentageOverlay = document.getElementById('percentage-overlay');
     }
 
     showAlert(message) {
@@ -82,6 +86,48 @@ export class UIManager {
         if (processButton) {
             processButton.disabled = false;
             processButton.classList.remove('disabled');
+        }
+    }
+
+
+
+    startProgressTracking(model) {
+        this.progressContainer.style.display = 'block';
+
+        this.progressInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`/processing-progress?model=${model}`);
+                const progress = await response.json();
+
+                // Directly set the width to the exact percentage
+                this.loadingBar.style.width = `${progress.percentComplete}%`;
+                this.percentageOverlay.textContent = `${progress.percentComplete}%`;
+
+                // Stop tracking if complete
+                if (progress.percentComplete >= 100 || !progress.processingActive) {
+                    this.stopProgressTracking();
+                }
+            } catch (error) {
+                console.error('Error updating progress:', error);
+                this.stopProgressTracking();
+            }
+        }, 200);
+    }
+
+    stopProgressTracking() {
+        if (this.progressInterval) {
+            this.loadingBar.style.width = '100%';
+            this.percentageOverlay.textContent = '100%';
+
+            clearInterval(this.progressInterval);
+            this.progressInterval = null;
+
+            // Hide the progress container with a slight delay to show 100%
+            setTimeout(() => {
+                this.progressContainer.style.display = 'none';
+                this.loadingBar.style.width = '0%';
+                this.percentageOverlay.textContent = '0%';
+            }, 2500);
         }
     }
 

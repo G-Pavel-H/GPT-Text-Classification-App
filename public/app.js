@@ -161,6 +161,7 @@ class App {
     }
 
     async handleUpload() {
+
         if (!this.fileHandler.isValid) {
             this.uiManager.showAlert('Please upload a valid CSV file.');
             return;
