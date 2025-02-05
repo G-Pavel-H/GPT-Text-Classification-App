@@ -8,6 +8,13 @@ import {UserSpendingTracker} from "../models/UserSpendingTracker.js";
 export const activeFiles = new Set();
 
 export class FileProcessor {
+    static calculateBatchSize(totalRows) {
+        if (totalRows < 100) return 5;
+        if (totalRows < 1000) return 10;
+        if (totalRows < 10000) return 50;
+        return 100;
+    }
+
     static async processCSVForLabeling(file, labels, model, openAIService, rateLimiter, ipAddress, numRows) {
 
         activeFiles.add(file.path);
@@ -15,8 +22,9 @@ export class FileProcessor {
         activeFiles.add(outputPath);
 
         try {
+            await UserSpendingTracker.initializeProcessing(ipAddress, numRows, 'processing');
             await rateLimiter.incrementProcessingRequests();
-            await UserSpendingTracker.initializeProcessing(ipAddress, numRows);
+
 
             const writeStream = fs.createWriteStream(outputPath);
             const csvStream = csv.format({ headers: ['Input', 'Output'] });
@@ -43,7 +51,7 @@ export class FileProcessor {
             // Create array to store results in order
             const results = new Array(rows.length).fill(null);
             let processedCount = 0;
-            const batchSize = 10;
+            const batchSize = this.calculateBatchSize(numRows);
 
             console.time("Labeling");
             // Implement controlled concurrency
@@ -59,7 +67,7 @@ export class FileProcessor {
 
                         processedCount++;
                         if (processedCount % batchSize === 0 || processedCount === rows.length) {
-                            await UserSpendingTracker.updateProcessingProgress(ipAddress, processedCount, numRows);
+                            await UserSpendingTracker.updateProcessingProgress(ipAddress, processedCount, numRows, 'processing');
                         }
 
                     } catch (error) {
@@ -68,28 +76,60 @@ export class FileProcessor {
                     }
                 })
             );
-            console.timeEnd("Labeling");
+
             // Wait for all promises to complete
             await Promise.all(promises);
+            console.timeEnd("Labeling");
+
+            await UserSpendingTracker.updateProcessingProgress(
+                ipAddress,
+                0,  // Reset progress for write phase
+                results.length,
+                'writing'
+            );
 
             console.time("writeCSV");
+            let writtenCount = 0;
+
             await new Promise((resolve, reject) => {
-
-                for (const result of results) {
-                    if (result) {
-                        csvStream.write({Input: result.Input, Output: result.Output});
+                const writeNextBatch = () => {
+                    const batchEnd = Math.min(writtenCount + batchSize, results.length);
+                    while (writtenCount < batchEnd) {
+                        if (results[writtenCount]) {
+                            csvStream.write({
+                                Input: results[writtenCount].Input,
+                                Output: results[writtenCount].Output
+                            });
+                        }
+                        writtenCount++;
                     }
-                }
 
-                csvStream.end();
+                    // Update progress synchronously to prevent race conditions
+                    UserSpendingTracker.updateProcessingProgress(
+                        ipAddress,
+                        writtenCount,
+                        results.length,
+                        'writing'
+                    );
+
+                    if (writtenCount < results.length) {
+                        // Schedule next batch with setTimeout to prevent blocking
+                        setTimeout(writeNextBatch, 0);
+                    } else {
+                        csvStream.end();
+                    }
+                };
+
+                writeNextBatch();
                 writeStream.on('finish', resolve);
                 writeStream.on('error', reject);
-
             });
+
             encoding.free();
 
             await UserSpendingTracker.finalizeProcessing(ipAddress);
             console.timeEnd("writeCSV");
+            await Promise.all(promises);
             return outputPath;
 
         } finally {

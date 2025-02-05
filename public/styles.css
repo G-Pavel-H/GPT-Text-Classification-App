@@ -456,7 +456,7 @@ h3 {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: 20px;
+    margin-top: 30px;
     width: 100%;
 }
 
@@ -465,6 +465,7 @@ h3 {
     align-items: center;
     justify-content: center;
     flex-direction: column;
+    margin:auto;
     gap: 15px;
     width: 100%;
     max-width: 400px;
@@ -475,6 +476,10 @@ h3 {
     font-size: 1.2em;
     font-weight: 600;
     text-align: center;
+}
+
+.loading-text-title{
+    animation: neon-pulse-for-text 3s infinite alternate;
 }
 
 .dot {
@@ -570,6 +575,18 @@ h3 {
     }
     100% {
         box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+    }
+}
+
+@keyframes neon-pulse-for-text {
+    0% {
+        text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+    }
+    50% {
+        text-shadow: 0 0 40px rgba(0, 122, 255, 0.7);
+    }
+    100% {
+        text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
     }
 }
 

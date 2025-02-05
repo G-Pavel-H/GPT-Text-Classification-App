@@ -181,11 +181,24 @@ class Server {
       try {
         const ipAddress = req.ip;
         const progress = await UserSpendingTracker.getProcessingProgress(ipAddress);
+        const phase = progress.currentPhase || 'processing';
 
-        // Calculate percentage and estimated time remaining
-        const percentComplete = progress.totalRows > 0
-            ? (progress.processedRows / progress.totalRows) * 100
-            : 0;
+        let percentComplete;
+
+        if (!progress.processingActive) {
+          percentComplete = 0;
+        } else if (progress.totalRows === 0) {
+          percentComplete = 0;
+        } else {
+          if (phase === 'processing') {
+            percentComplete = (progress.processedRows / progress.totalRows) * 90;
+          } else if (phase === 'writing') {
+            const writeProgress = (progress.processedRows / progress.totalRows) * 10;
+            percentComplete = 90 + writeProgress;
+          }
+        }
+
+        percentComplete = Math.min(Math.max(Math.round(percentComplete), 0), 100);
 
         // Calculate processing rate and estimated time remaining
         let estimatedTimeRemaining = null;
@@ -199,10 +212,12 @@ class Server {
         res.json({
           processedRows: progress.processedRows,
           totalRows: progress.totalRows,
-          percentComplete: Math.round(percentComplete),
+          percentComplete: percentComplete,
           estimatedTimeRemaining,
-          processingActive: progress.processingActive
+          processingActive: progress.processingActive,
+          currentPhase: phase
         });
+
       } catch (error) {
         console.error('Error fetching processing progress:', error);
         res.status(500).json({ error: 'Could not fetch processing progress' });

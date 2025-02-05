@@ -92,9 +92,8 @@ export class UserSpendingTracker {
         return `${year}-${month}-${day}`;
     }
 
-    static async updateProcessingProgress(ipAddress, processedRows, totalRows) {
+    static async updateProcessingProgress(ipAddress, processedRows, totalRows, phase = 'processing') {
         const collection = getMongoCollection('user_spending');
-        const today = this.getTodayDateString();
 
         try {
             await collection.updateOne(
@@ -104,7 +103,8 @@ export class UserSpendingTracker {
                         processedRows,
                         totalRows,
                         lastUpdateTime: new Date(),
-                        processingActive: true
+                        processingActive: true,
+                        currentPhase: phase  // Store the current processing phase
                     }
                 }
             );
@@ -115,9 +115,9 @@ export class UserSpendingTracker {
         }
     }
 
+
     static async getProcessingProgress(ipAddress) {
         const collection = getMongoCollection('user_spending');
-        const today = this.getTodayDateString();
 
         try {
             const userDoc = await collection.findOne({
@@ -128,21 +128,23 @@ export class UserSpendingTracker {
                 processedRows: userDoc?.processedRows || 0,
                 totalRows: userDoc?.totalRows || 0,
                 lastUpdateTime: userDoc?.lastUpdateTime,
-                processingActive: userDoc?.processingActive || false
+                processingActive: userDoc?.processingActive || false,
+                currentPhase: userDoc?.currentPhase || 'processing' // Add this line
             };
         } catch (error) {
             console.error('Error getting processing progress:', error);
             return {
                 processedRows: 0,
                 totalRows: 0,
-                processingActive: false
+                processingActive: false,
+                currentPhase: 'processing' // Add this line
             };
         }
     }
 
-    static async initializeProcessing(ipAddress, totalRows) {
+
+    static async initializeProcessing(ipAddress, totalRows, phase = 'processing') {
         const collection = getMongoCollection('user_spending');
-        const today = this.getTodayDateString();
 
         try {
             await collection.updateOne(
@@ -152,7 +154,8 @@ export class UserSpendingTracker {
                         processedRows: 0,
                         totalRows,
                         lastUpdateTime: new Date(),
-                        processingActive: true
+                        processingActive: true,
+                        currentPhase: phase
                     }
                 },
                 { upsert: true }
@@ -166,7 +169,6 @@ export class UserSpendingTracker {
 
     static async finalizeProcessing(ipAddress) {
         const collection = getMongoCollection('user_spending');
-        const today = this.getTodayDateString();
 
         try {
             await collection.updateOne(

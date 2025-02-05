@@ -11,6 +11,8 @@ export class UIManager {
         this.progressContainer = document.getElementById('progress-container');
         this.loadingBar = document.getElementById('loading-bar');
         this.percentageOverlay = document.getElementById('percentage-overlay');
+        this.lastProgressUpdate = 0;
+        this.minProgressUpdateInterval = 100;
     }
 
     showAlert(message) {
@@ -93,41 +95,52 @@ export class UIManager {
 
     startProgressTracking(model) {
         this.progressContainer.style.display = 'block';
+        this.loadingBar.style.width = '0%';
+        this.percentageOverlay.textContent = '0%';
 
         this.progressInterval = setInterval(async () => {
+            const now = Date.now();
+            if (now - this.lastProgressUpdate < this.minProgressUpdateInterval) {
+                return;
+            }
+
             try {
                 const response = await fetch(`/processing-progress?model=${model}`);
                 const progress = await response.json();
 
-                // Directly set the width to the exact percentage
+                this.lastProgressUpdate = now;
+
+                // Update the progress bar
                 this.loadingBar.style.width = `${progress.percentComplete}%`;
                 this.percentageOverlay.textContent = `${progress.percentComplete}%`;
 
-                // Stop tracking if complete
-                if (progress.percentComplete >= 100 || !progress.processingActive) {
-                    this.stopProgressTracking();
+                // Check if processing is complete
+                if (!progress.processingActive) {
+                    // If processing is not active, we're done - set to 100% and stop tracking
+                    await this.stopProgressTracking();
                 }
             } catch (error) {
                 console.error('Error updating progress:', error);
-                this.stopProgressTracking();
+                await this.stopProgressTracking();
             }
         }, 200);
     }
 
-    stopProgressTracking() {
+    async stopProgressTracking() {
         if (this.progressInterval) {
-            this.loadingBar.style.width = '100%';
-            this.percentageOverlay.textContent = '100%';
-
             clearInterval(this.progressInterval);
             this.progressInterval = null;
 
-            // Hide the progress container with a slight delay to show 100%
+            // Set to 100% when stopping
+            this.loadingBar.style.width = '100%';
+            this.percentageOverlay.textContent = '100%';
+
+            // Hide the progress container with a delay
             setTimeout(() => {
                 this.progressContainer.style.display = 'none';
                 this.loadingBar.style.width = '0%';
                 this.percentageOverlay.textContent = '0%';
-            }, 2500);
+            }, 1000);
         }
     }
 
