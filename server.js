@@ -14,7 +14,7 @@ import fs from "fs";
 import csv from "fast-csv";
 import { RateLimiter } from "./models/RateLimiter.js";
 import {closeConnection, connectToDatabase, getMongoCollection} from "./db.js";
-import {SpendingLimitMiddleware, UserSpendingTracker} from "./models/UserSpendingTracker.js";
+import {UserSpendingTracker} from "./models/UserSpendingTracker.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +41,7 @@ class Server {
     this.app.post('/upload-csv', this.upload.single('file'), async (req, res) => {
       const rateLimiter = new RateLimiter(req.body.model || CONFIG.DEFAULT_MODEL);
       try {
+        const userId = req.body.userId;
         const labels = req.body.labels ? JSON.parse(req.body.labels) : [];
         const model = req.body.model || CONFIG.DEFAULT_MODEL;
 
@@ -87,7 +88,10 @@ class Server {
             labels,
             model,
             this.openAIService,
-            rateLimiter // Pass the rateLimiter instance
+            rateLimiter,
+            userId,
+            req.ip,
+            numRows
         );
 
         res.download(outputPath, async (err) => {
@@ -98,8 +102,15 @@ class Server {
           await FileProcessor.cleanup([req.file.path, outputPath], rateLimiter);
         });
 
-        req.userSpending = { ipAddress: req.ip, estimatedCost: parseFloat(req.body.totalCost)};
-        await UserSpendingTracker.recordUserSpending(req.userSpending.ipAddress, req.userSpending.estimatedCost);
+        req.userSpending = {
+          ipAddress: req.ip,
+          estimatedCost: parseFloat(req.body.totalCost)
+        };
+
+        await UserSpendingTracker.recordUserSpending(
+            req.userSpending.ipAddress,
+            req.userSpending.estimatedCost);
+
       }
       catch (error) {
         console.error('Error processing CSV:', error);
@@ -174,6 +185,54 @@ class Server {
         res.status(500).json({ error: 'Could not fetch processing requests' });
       }
     });
+
+    this.app.get('/processing-progress', async (req, res) => {
+      try {
+        const userId = req.query.userId;
+        const ipAddress = req.ip;
+        const progress = await UserSpendingTracker.getProcessingProgress(userId);
+        const phase = progress.currentPhase || 'processing';
+
+        let percentComplete;
+
+        if (!progress.processingActive) {
+          percentComplete = 0;
+        } else if (progress.totalRows === 0) {
+          percentComplete = 0;
+        } else {
+          if (phase === 'processing') {
+            percentComplete = (progress.processedRows / progress.totalRows) * 90;
+          } else if (phase === 'writing') {
+            const writeProgress = (progress.processedRows / progress.totalRows) * 10;
+            percentComplete = 90 + writeProgress;
+          }
+        }
+
+        percentComplete = Math.min(Math.max(Math.round(percentComplete), 0), 100);
+
+        // Calculate processing rate and estimated time remaining
+        let estimatedTimeRemaining = null;
+        if (progress.lastUpdateTime && progress.processedRows > 0 && progress.processingActive) {
+          const elapsedTime = new Date() - new Date(progress.lastUpdateTime);
+          const rowsRemaining = progress.totalRows - progress.processedRows;
+          const processingRate = progress.processedRows / elapsedTime;
+          estimatedTimeRemaining = Math.ceil(rowsRemaining / processingRate / 1000); // in seconds
+        }
+
+        res.json({
+          processedRows: progress.processedRows,
+          totalRows: progress.totalRows,
+          percentComplete: percentComplete,
+          estimatedTimeRemaining,
+          processingActive: progress.processingActive,
+          currentPhase: phase
+        });
+
+      } catch (error) {
+        console.error('Error fetching processing progress:', error);
+        res.status(500).json({ error: 'Could not fetch processing progress' });
+      }
+    });
   }
 
   start() {
@@ -186,6 +245,7 @@ class Server {
 await connectToDatabase(CONFIG.MONGO_DB_URI);
 const collection = getMongoCollection('models_limits');
 await collection.createIndex({ model: 1 }, { unique: true });
+await UserSpendingTracker.createIndexes();
 
 const server = new Server();
 
