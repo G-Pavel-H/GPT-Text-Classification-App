@@ -602,3 +602,31 @@ h3 {
         opacity: 1;
     }
 }
+
+.welcome-message {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 1000;
+    animation: fadeInOut 2s ease-in-out infinite;
+    font-size: 3.2em;
+    font-weight: 600;
+    color: #ff00ff;
+}
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0.5;
+        text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+    }
+    50% {
+        opacity: 1;
+        text-shadow: 0 0 40px rgba(0, 122, 255, 0.7);
+    }
+    100% {
+        opacity: 0.5;
+        text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+    }
+}
