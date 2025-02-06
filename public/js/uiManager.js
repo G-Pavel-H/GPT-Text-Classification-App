@@ -1,4 +1,5 @@
 import { CONFIG } from "./constants.js";
+import {UserIdentifier} from "./UserIdentifier.js";
 
 export class UIManager {
     constructor() {
@@ -98,32 +99,42 @@ export class UIManager {
         this.loadingBar.style.width = '0%';
         this.percentageOverlay.textContent = '0%';
 
-        this.progressInterval = setInterval(async () => {
-            const now = Date.now();
-            if (now - this.lastProgressUpdate < this.minProgressUpdateInterval) {
-                return;
-            }
+        let firstTry = true;
 
-            try {
-                const response = await fetch(`/processing-progress?model=${model}`);
-                const progress = await response.json();
+        const userIdentifier = new UserIdentifier();
+        userIdentifier.getUserId().then((userId) => {
 
-                this.lastProgressUpdate = now;
+            this.progressInterval = setInterval(async () => {
+                const now = Date.now();
+                if (now - this.lastProgressUpdate < this.minProgressUpdateInterval) {
+                    return;
+                }
 
-                // Update the progress bar
-                this.loadingBar.style.width = `${progress.percentComplete}%`;
-                this.percentageOverlay.textContent = `${progress.percentComplete}%`;
+                try {
+                    const response = await fetch(`/processing-progress?model=${model}&userId=${userId}`);
+                    const progress = await response.json();
 
-                // Check if processing is complete
-                if (!progress.processingActive) {
-                    // If processing is not active, we're done - set to 100% and stop tracking
+                    this.lastProgressUpdate = now;
+
+                    // Update the progress bar
+                    this.loadingBar.style.width = `${progress.percentComplete}%`;
+                    this.percentageOverlay.textContent = `${progress.percentComplete}%`;
+
+                    // Check if processing is complete
+                    if (!progress.processingActive && !firstTry) {
+                        // If processing is not active, we're done - set to 100% and stop tracking
+                        await this.stopProgressTracking();
+                    }
+
+                    firstTry = false;
+
+                } catch (error) {
+                    console.error('Error updating progress:', error);
                     await this.stopProgressTracking();
                 }
-            } catch (error) {
-                console.error('Error updating progress:', error);
-                await this.stopProgressTracking();
-            }
-        }, 200);
+            }, 200);
+
+        });
     }
 
     async stopProgressTracking() {

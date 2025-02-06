@@ -15,14 +15,14 @@ export class FileProcessor {
         return 100;
     }
 
-    static async processCSVForLabeling(file, labels, model, openAIService, rateLimiter, ipAddress, numRows) {
+    static async processCSVForLabeling(file, labels, model, openAIService, rateLimiter, userId, ipAddress, numRows) {
 
         activeFiles.add(file.path);
         const outputPath = `output-${file.filename}.csv`;
         activeFiles.add(outputPath);
 
         try {
-            await UserSpendingTracker.initializeProcessing(ipAddress, numRows, 'processing');
+            await UserSpendingTracker.initializeProcessing(userId, ipAddress, numRows, 'processing');
             await rateLimiter.incrementProcessingRequests();
 
 
@@ -67,7 +67,7 @@ export class FileProcessor {
 
                         processedCount++;
                         if (processedCount % batchSize === 0 || processedCount === rows.length) {
-                            await UserSpendingTracker.updateProcessingProgress(ipAddress, processedCount, numRows, 'processing');
+                            await UserSpendingTracker.updateProcessingProgress(userId, ipAddress, processedCount, numRows, 'processing');
                         }
 
                     } catch (error) {
@@ -82,6 +82,7 @@ export class FileProcessor {
             console.timeEnd("Labeling");
 
             await UserSpendingTracker.updateProcessingProgress(
+                userId,
                 ipAddress,
                 0,  // Reset progress for write phase
                 results.length,
@@ -106,6 +107,7 @@ export class FileProcessor {
 
                     // Update progress synchronously to prevent race conditions
                     UserSpendingTracker.updateProcessingProgress(
+                        userId,
                         ipAddress,
                         writtenCount,
                         results.length,
@@ -127,7 +129,7 @@ export class FileProcessor {
 
             encoding.free();
 
-            await UserSpendingTracker.finalizeProcessing(ipAddress);
+            await UserSpendingTracker.finalizeProcessing(userId);
             console.timeEnd("writeCSV");
             await Promise.all(promises);
             return outputPath;

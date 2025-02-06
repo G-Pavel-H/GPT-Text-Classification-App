@@ -158,8 +158,12 @@ input[type="file"] {
 
 #progress-message {
     margin-top: 20px;
-    font-size: 1.2em;
     display: none;
+    font-size: 1.2em;
+    font-weight: 600;
+    text-align: center;
+    color: #ff00ff;
+    animation: neon-pulse-for-text 3s infinite alternate;
 }
 
 /* Animations */

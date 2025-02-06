@@ -2,9 +2,16 @@ import { CONFIG } from '../config.js';
 import { getMongoCollection } from '../db.js';
 
 export class UserSpendingTracker {
+
+    static async createIndexes() {
+        const collection = getMongoCollection('user_spending');
+        await collection.createIndex({ userId: 1 }, { unique: true });
+        await collection.createIndex({ ipAddress: 1 });
+    }
+
     static DAILY_SPENDING_LIMIT = CONFIG.DAILY_SPENDING_LIMIT;
 
-    static async recordUserSpending(ipAddress, amount) {
+    static async recordUserSpending(userId, ipAddress, amount) {
         if (typeof amount !== 'number' || isNaN(amount)) {
             console.error('Invalid amount provided:', amount);
             return false;
@@ -14,13 +21,14 @@ export class UserSpendingTracker {
         const today = this.getTodayDateString();
 
         try {
-            const existingDoc = await collection.findOne({ ipAddress });
+            const existingDoc = await collection.findOne({ userId });
 
             if (!existingDoc) {
                 const result = await collection.findOneAndUpdate(
-                    { ipAddress },
+                    { userId },
                     {
                         $set: {
+                            userId,
                             ipAddress,
                             date: today,
                             totalSpent: amount
@@ -36,7 +44,7 @@ export class UserSpendingTracker {
 
             if (existingDoc.date !== today) {
                 const result = await collection.findOneAndUpdate(
-                    { ipAddress },
+                    { userId },
                     {
                         $set: {
                             date: today,
@@ -49,7 +57,7 @@ export class UserSpendingTracker {
             }
 
             const result = await collection.findOneAndUpdate(
-                { ipAddress, date: today },
+                { userId, date: today },
                 { $inc: { totalSpent: amount } },
                 { returnDocument: 'after' }
             );
@@ -62,9 +70,9 @@ export class UserSpendingTracker {
         }
     }
 
-    static async getUserDailySpending(ipAddress) {
-        if (!ipAddress) {
-            console.error('No IP address provided');
+    static async getUserDailySpending(userId) {
+        if (!userId) {
+            console.error('No user ID provided');
             return 0;
         }
 
@@ -73,7 +81,7 @@ export class UserSpendingTracker {
 
         try {
             const userSpending = await collection.findOne({
-                ipAddress,
+                userId,
                 date: today
             });
 
@@ -92,19 +100,20 @@ export class UserSpendingTracker {
         return `${year}-${month}-${day}`;
     }
 
-    static async updateProcessingProgress(ipAddress, processedRows, totalRows, phase = 'processing') {
+    static async updateProcessingProgress(userId, ipAddress, processedRows, totalRows, phase = 'processing') {
         const collection = getMongoCollection('user_spending');
 
         try {
             await collection.updateOne(
-                { ipAddress },
+                { userId },
                 {
                     $set: {
+                        ipAddress,
                         processedRows,
                         totalRows,
                         lastUpdateTime: new Date(),
                         processingActive: true,
-                        currentPhase: phase  // Store the current processing phase
+                        currentPhase: phase
                     }
                 }
             );
@@ -116,12 +125,12 @@ export class UserSpendingTracker {
     }
 
 
-    static async getProcessingProgress(ipAddress) {
+    static async getProcessingProgress(userId) {
         const collection = getMongoCollection('user_spending');
 
         try {
             const userDoc = await collection.findOne({
-                ipAddress,
+                userId,
             });
 
             return {
@@ -143,14 +152,15 @@ export class UserSpendingTracker {
     }
 
 
-    static async initializeProcessing(ipAddress, totalRows, phase = 'processing') {
+    static async initializeProcessing(userId, ipAddress, totalRows, phase = 'processing') {
         const collection = getMongoCollection('user_spending');
 
         try {
             await collection.updateOne(
-                { ipAddress },
+                { userId },
                 {
                     $set: {
+                        ipAddress,
                         processedRows: 0,
                         totalRows,
                         lastUpdateTime: new Date(),
@@ -167,12 +177,12 @@ export class UserSpendingTracker {
         }
     }
 
-    static async finalizeProcessing(ipAddress) {
+    static async finalizeProcessing(userId) {
         const collection = getMongoCollection('user_spending');
 
         try {
             await collection.updateOne(
-                { ipAddress },
+                { userId },
                 {
                     $set: {
                         lastUpdateTime: new Date(),
