@@ -9,7 +9,8 @@
 <body>
     <!-- Preloader -->
 <div id="preloader">
-    <div class="loader"></div>
+    <div class="welcome-message">Welcome to Labelly!</div>
+    <div class="preloader"></div>
 </div>
     <div class="container">
         <div class="content">
@@ -91,8 +92,6 @@
                 <br>
                 <div id="processing-status-requests">Current Requests In Process: </div>
                 <br>
-                <div id="processing-status-wait">Estimated Wait time: </div>
-                <br>
                 <br>
                 <!-- Labels Section -->
                 <h3>Define Your Categories</h3>
@@ -114,6 +113,31 @@
                 </div>
 
                 <div id="progress-message"></div>
+                <div id="progress-container" class="progress-container" style="display: none;">
+                    <div class="loader">
+                        <div class="loading-text">
+                            <span class="loading-text-title">Labellying</span><span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+                        </div>
+                        <div class="loading-bar-background">
+                            <div class="loading-bar" id="loading-bar">
+                                <div class="percentage-overlay" id="percentage-overlay">0%</div>
+                                <div class="white-bars-container">
+                                    <div class="white-bar"></div>
+                                    <div class="white-bar"></div>
+                                    <div class="white-bar"></div>
+                                    <div class="white-bar"></div>
+                                    <div class="white-bar"></div>
+                                    <div class="white-bar"></div>
+                                    <div class="white-bar"></div>
+                                    <div class="white-bar"></div>
+                                    <div class="white-bar"></div>
+                                    <div class="white-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

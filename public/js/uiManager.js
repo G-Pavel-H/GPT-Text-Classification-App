@@ -1,4 +1,5 @@
 import { CONFIG } from "./constants.js";
+import {UserIdentifier} from "./UserIdentifier.js";
 
 export class UIManager {
     constructor() {
@@ -7,6 +8,12 @@ export class UIManager {
         this.priceEstimateElement = document.getElementById('price-estimate');
         this.totalTokensElement = document.getElementById('total-tokens-estimate');
         this.totalRequestsElement = document.getElementById('total-requests-estimate');
+        this.progressInterval = null;
+        this.progressContainer = document.getElementById('progress-container');
+        this.loadingBar = document.getElementById('loading-bar');
+        this.percentageOverlay = document.getElementById('percentage-overlay');
+        this.lastProgressUpdate = 0;
+        this.minProgressUpdateInterval = 100;
     }
 
     showAlert(message) {
@@ -85,6 +92,69 @@ export class UIManager {
         }
     }
 
+
+
+    startProgressTracking(model) {
+        this.progressContainer.style.display = 'block';
+        this.loadingBar.style.width = '0%';
+        this.percentageOverlay.textContent = '0%';
+
+        let firstTry = true;
+
+        const userIdentifier = new UserIdentifier();
+        userIdentifier.getUserId().then((userId) => {
+
+            this.progressInterval = setInterval(async () => {
+                const now = Date.now();
+                if (now - this.lastProgressUpdate < this.minProgressUpdateInterval) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/processing-progress?model=${model}&userId=${userId}`);
+                    const progress = await response.json();
+
+                    this.lastProgressUpdate = now;
+
+                    // Update the progress bar
+                    this.loadingBar.style.width = `${progress.percentComplete}%`;
+                    this.percentageOverlay.textContent = `${progress.percentComplete}%`;
+
+                    // Check if processing is complete
+                    if (!progress.processingActive && !firstTry) {
+                        // If processing is not active, we're done - set to 100% and stop tracking
+                        await this.stopProgressTracking();
+                    }
+
+                    firstTry = false;
+
+                } catch (error) {
+                    console.error('Error updating progress:', error);
+                    await this.stopProgressTracking();
+                }
+            }, 200);
+
+        });
+    }
+
+    async stopProgressTracking() {
+        if (this.progressInterval) {
+            clearInterval(this.progressInterval);
+            this.progressInterval = null;
+
+            // Set to 100% when stopping
+            this.loadingBar.style.width = '100%';
+            this.percentageOverlay.textContent = '100%';
+
+            // Hide the progress container with a delay
+            setTimeout(() => {
+                this.progressContainer.style.display = 'none';
+                this.loadingBar.style.width = '0%';
+                this.percentageOverlay.textContent = '0%';
+            }, 1000);
+        }
+    }
+
     // You might also want to add a method to track processing time
     async updateProcessingStatus(model) {
         try {
@@ -93,7 +163,6 @@ export class UIManager {
 
             const processingElementModel = document.getElementById('processing-status-model');
             const processingElementRequests = document.getElementById('processing-status-requests');
-            const processingElementWait = document.getElementById('processing-status-wait');
 
             if (processingElementModel) {
                 processingElementModel.textContent = `Model: ${model}`;
@@ -101,9 +170,7 @@ export class UIManager {
             if (processingElementRequests) {
                 processingElementRequests.textContent = `Current Requests In Process:: ${data.processingRequests}`;
             }
-            if (processingElementWait) {
-                processingElementWait.textContent = `Estimated Wait time: : ${data.estimatedTimeRemaining} seconds`;
-            }
+
         } catch (error) {
             console.error('Error fetching processing status:', error);
         }

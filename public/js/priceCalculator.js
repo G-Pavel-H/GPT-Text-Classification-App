@@ -1,4 +1,5 @@
 import { CONFIG } from "./constants.js";
+import {UserIdentifier} from "./UserIdentifier.js";
 
 export class PriceCalculator {
     constructor() {
@@ -9,6 +10,10 @@ export class PriceCalculator {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('model', model);
+
+        const userIdentifier = new UserIdentifier();
+        const userId = await userIdentifier.getUserId();
+        formData.append('userId', userId);
 
         try {
             const response = await fetch('/calculate-cost', {

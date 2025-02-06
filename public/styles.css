@@ -22,7 +22,7 @@ body {
     align-items: center;
 }
 
-.loader {
+.preloader {
     width: 100px;
     height: 100px;
     border: 15px solid #333;
@@ -158,8 +158,12 @@ input[type="file"] {
 
 #progress-message {
     margin-top: 20px;
-    font-size: 1.2em;
     display: none;
+    font-size: 1.2em;
+    font-weight: 600;
+    text-align: center;
+    color: #ff00ff;
+    animation: neon-pulse-for-text 3s infinite alternate;
 }
 
 /* Animations */
@@ -283,6 +287,10 @@ h3 {
     border-radius: 8px;
     position: relative;
     text-align: center;
+}
+
+#custom-alert-message{
+    margin-top: 30px;
 }
 
 .custom-alert-close {
@@ -449,5 +457,180 @@ h3 {
 
     .fancy-button:last-child {
         margin-bottom: 0;
+    }
+}
+
+.progress-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 30px;
+    width: 100%;
+}
+
+.loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    margin:auto;
+    gap: 15px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.loading-text {
+    color: #ff00ff; /* Matching your app's magenta theme */
+    font-size: 1.2em;
+    font-weight: 600;
+    text-align: center;
+}
+
+.loading-text-title{
+    animation: neon-pulse-for-text 3s infinite alternate;
+}
+
+.dot {
+    margin-left: 3px;
+    animation: blink 1.5s infinite;
+    color: #ff00ff;
+}
+
+.dot:nth-child(2) {
+    animation-delay: 0.3s;
+}
+
+.dot:nth-child(3) {
+    animation-delay: 0.6s;
+}
+
+.loading-bar-background {
+    --height: 30px;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 5px;
+    width: 100%;
+    height: var(--height);
+    background-color: #2a2a2a;
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.3), 0 0 4px rgba(255, 0, 255, 0.5) inset;
+    border-radius: calc(var(--height) / 2);
+    border: 1px solid #ff00ff;
+}
+
+.loading-bar {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    --height: 20px;
+    width: 0%; /* This will be dynamically set by JavaScript */
+    height: var(--height);
+    overflow: hidden;
+    background: linear-gradient(
+            45deg,
+            rgba(255, 0, 255, 0.7) 0%,
+            rgba(0, 122, 255, 0.7) 100%
+    );
+    border-radius: calc(var(--height) / 2);
+    transition: width 0.5s ease-out; /* Smooth width transition */
+    animation: neon-pulse 3s infinite alternate;
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+}
+
+.percentage-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    z-index: 10;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(0,0,0,0.7);
+}
+
+.white-bars-container {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.white-bar {
+    background: linear-gradient(
+            -45deg,
+            rgba(255, 255, 255, 0.5) 0%,
+            rgba(255, 255, 255, 0) 70%
+    );
+    width: 10px;
+    height: 45px;
+    opacity: 0.3;
+    rotate: 45deg;
+}
+
+@keyframes loading {
+    0%, 100% {
+        width: var(--progress-width, 0%);
+    }
+}
+
+@keyframes neon-pulse {
+    0% {
+        box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(0, 122, 255, 0.7);
+    }
+    100% {
+        box-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+    }
+}
+
+@keyframes neon-pulse-for-text {
+    0% {
+        text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+    }
+    50% {
+        text-shadow: 0 0 40px rgba(0, 122, 255, 0.7);
+    }
+    100% {
+        text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+    }
+}
+
+@keyframes blink {
+    0%, 100% {
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.welcome-message {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 1000;
+    animation: fadeInOut 2s ease-in-out infinite;
+    font-size: 3.2em;
+    font-weight: 600;
+    color: #ff00ff;
+}
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0.5;
+        text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+    }
+    50% {
+        opacity: 1;
+        text-shadow: 0 0 40px rgba(0, 122, 255, 0.7);
+    }
+    100% {
+        opacity: 0.5;
+        text-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
     }
 }

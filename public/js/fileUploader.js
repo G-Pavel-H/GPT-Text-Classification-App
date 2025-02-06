@@ -1,3 +1,5 @@
+import {UserIdentifier} from "./UserIdentifier.js";
+
 export class FileUploader {
     constructor(uiManager) {
         this.uiManager = uiManager;
@@ -11,7 +13,12 @@ export class FileUploader {
         formData.append('model', model);
         formData.append('totalCost', totalCost);
 
-        this.uiManager.updateProgressMessage('Processing your file, please wait...');
+        const userIdentifier = new UserIdentifier();
+        const userId = await userIdentifier.getUserId();
+        formData.append('userId', userId);
+
+        this.uiManager.updateProgressMessage('Processing your file, please wait');
+        this.uiManager.startProgressTracking(model);
 
         try {
             const response = await fetch('/upload-csv', {
@@ -41,8 +48,11 @@ export class FileUploader {
             this.downloadFile(blob);
 
             this.uiManager.updateProgressMessage('', false);
+            await this.uiManager.stopProgressTracking();
+
         } catch (error) {
             this.uiManager.updateProgressMessage('', false);
+            await this.uiManager.stopProgressTracking();
             console.error('Upload error:', error);
             throw error;
         } finally {

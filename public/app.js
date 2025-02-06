@@ -68,13 +68,24 @@ class App {
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const preloader = document.getElementById('preloader');
-                preloader.style.opacity = '0';
-                preloader.style.transition = 'opacity 1s ease';
+                const welcomeMessage = preloader.querySelector('.welcome-message');
 
+                // Fade out welcome message first
+                if (welcomeMessage) {
+                    welcomeMessage.style.opacity = '0';
+                    welcomeMessage.style.transition = 'opacity 0.5s ease';
+                }
+
+                // Then fade out preloader
                 setTimeout(() => {
-                    preloader.style.display = 'none';
-                }, 1000);
-            }, 1000);
+                    preloader.style.opacity = '0';
+                    preloader.style.transition = 'opacity 1s ease';
+
+                    setTimeout(() => {
+                        preloader.style.display = 'none';
+                    }, 1500);
+                }, 500);
+            }, 1500);
         });
     }
 
@@ -161,6 +172,7 @@ class App {
     }
 
     async handleUpload() {
+
         if (!this.fileHandler.isValid) {
             this.uiManager.showAlert('Please upload a valid CSV file.');
             return;
