@@ -163,7 +163,6 @@ export class UIManager {
 
             const processingElementModel = document.getElementById('processing-status-model');
             const processingElementRequests = document.getElementById('processing-status-requests');
-            const processingElementWait = document.getElementById('processing-status-wait');
 
             if (processingElementModel) {
                 processingElementModel.textContent = `Model: ${model}`;
@@ -171,9 +170,7 @@ export class UIManager {
             if (processingElementRequests) {
                 processingElementRequests.textContent = `Current Requests In Process:: ${data.processingRequests}`;
             }
-            if (processingElementWait) {
-                processingElementWait.textContent = `Estimated Wait time: : ${data.estimatedTimeRemaining} seconds`;
-            }
+
         } catch (error) {
             console.error('Error fetching processing status:', error);
         }
