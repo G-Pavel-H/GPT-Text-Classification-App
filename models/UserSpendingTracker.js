@@ -4,14 +4,14 @@ import { getMongoCollection } from '../db.js';
 export class UserSpendingTracker {
 
     static async createIndexes() {
-        const collection = getMongoCollection('user_spending');
+        const collection = getMongoCollection('user_progress');
         await collection.createIndex({ userId: 1 }, { unique: true });
         await collection.createIndex({ ipAddress: 1 });
     }
 
     static DAILY_SPENDING_LIMIT = CONFIG.DAILY_SPENDING_LIMIT;
 
-    static async recordUserSpending(userId, ipAddress, amount) {
+    static async recordUserSpending(ipAddress, amount) {
         if (typeof amount !== 'number' || isNaN(amount)) {
             console.error('Invalid amount provided:', amount);
             return false;
@@ -21,14 +21,13 @@ export class UserSpendingTracker {
         const today = this.getTodayDateString();
 
         try {
-            const existingDoc = await collection.findOne({ userId });
+            const existingDoc = await collection.findOne({ ipAddress });
 
             if (!existingDoc) {
                 const result = await collection.findOneAndUpdate(
-                    { userId },
+                    { ipAddress },
                     {
                         $set: {
-                            userId,
                             ipAddress,
                             date: today,
                             totalSpent: amount
@@ -44,7 +43,7 @@ export class UserSpendingTracker {
 
             if (existingDoc.date !== today) {
                 const result = await collection.findOneAndUpdate(
-                    { userId },
+                    { ipAddress },
                     {
                         $set: {
                             date: today,
@@ -57,7 +56,7 @@ export class UserSpendingTracker {
             }
 
             const result = await collection.findOneAndUpdate(
-                { userId, date: today },
+                { ipAddress, date: today },
                 { $inc: { totalSpent: amount } },
                 { returnDocument: 'after' }
             );
@@ -70,9 +69,9 @@ export class UserSpendingTracker {
         }
     }
 
-    static async getUserDailySpending(userId) {
-        if (!userId) {
-            console.error('No user ID provided');
+    static async getUserDailySpending(ipAddress) {
+        if (!ipAddress) {
+            console.error('No IP address provided');
             return 0;
         }
 
@@ -81,7 +80,7 @@ export class UserSpendingTracker {
 
         try {
             const userSpending = await collection.findOne({
-                userId,
+                ipAddress,
                 date: today
             });
 
@@ -101,7 +100,7 @@ export class UserSpendingTracker {
     }
 
     static async updateProcessingProgress(userId, ipAddress, processedRows, totalRows, phase = 'processing') {
-        const collection = getMongoCollection('user_spending');
+        const collection = getMongoCollection('user_progress');
 
         try {
             await collection.updateOne(
@@ -126,7 +125,7 @@ export class UserSpendingTracker {
 
 
     static async getProcessingProgress(userId) {
-        const collection = getMongoCollection('user_spending');
+        const collection = getMongoCollection('user_progress');
 
         try {
             const userDoc = await collection.findOne({
@@ -153,7 +152,7 @@ export class UserSpendingTracker {
 
 
     static async initializeProcessing(userId, ipAddress, totalRows, phase = 'processing') {
-        const collection = getMongoCollection('user_spending');
+        const collection = getMongoCollection('user_progress');
 
         try {
             await collection.updateOne(
@@ -178,7 +177,7 @@ export class UserSpendingTracker {
     }
 
     static async finalizeProcessing(userId) {
-        const collection = getMongoCollection('user_spending');
+        const collection = getMongoCollection('user_progress');
 
         try {
             await collection.updateOne(

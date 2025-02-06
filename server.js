@@ -103,13 +103,11 @@ class Server {
         });
 
         req.userSpending = {
-          userId,
           ipAddress: req.ip,
           estimatedCost: parseFloat(req.body.totalCost)
         };
 
         await UserSpendingTracker.recordUserSpending(
-            req.userSpending.userId,
             req.userSpending.ipAddress,
             req.userSpending.estimatedCost);
 
@@ -136,12 +134,14 @@ class Server {
 
     this.app.post('/calculate-cost', this.upload.single('file'), async (req, res) => {
       try {
-        const userId = req.body.userId;
         const model = req.body.model || CONFIG.DEFAULT_MODEL;
         const { totalTokens, numRows } = await FileProcessor.calculateTokens(req.file, model);
         const totalCost = CostCalculator.calculateCost(model, totalTokens, numRows);
 
-        const dailySpending = await UserSpendingTracker.getUserDailySpending(userId);
+        // Now run the spending limit check with the actually computed cost.
+        // We'll simulate calling checkSpendingLimit inline or using the middleware manually:
+        const ipAddress = req.ip; // or from X-Forwarded-For if behind proxy
+        const dailySpending = await UserSpendingTracker.getUserDailySpending(ipAddress);
         const newTotalSpending = parseFloat(dailySpending) + parseFloat(totalCost);
 
         if (newTotalSpending > UserSpendingTracker.DAILY_SPENDING_LIMIT) {
